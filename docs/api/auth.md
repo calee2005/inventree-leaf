@@ -11,7 +11,7 @@
 | 换 token | `GET /api/user/me/token/` | `GET /api/user/token/` |
 | 当前用户角色 | `GET /api/user/me/roles/` | `GET /api/user/roles/` |
 
-本阶段登录后只调用「当前用户」和「零件列表」，不拉取角色。角色路径保留在客户端里，供以后使用。
+登录后调用「当前用户」「零件列表」「零件类别」和缩略图。不拉取角色，也不提交创建、编辑或筛选。角色路径保留在客户端里，供以后使用。
 
 ## 探测服务器
 
@@ -47,15 +47,43 @@ token 写入单独的存储项，不放进服务器档案。
 
 ## 零件列表
 
-`GET {base}api/part/?limit=50&offset=0`
+`GET {base}api/part/?limit=50&offset=0`，并按浏览位置加上查询参数。同样使用 `Authorization: Token <value>`。需要 `part` 的查看权限，否则 403。只取第一页。
 
-- 同样使用 `Authorization: Token <value>`
-- 需要 `part` 的查看权限，否则 403
-- 200 的模型是 `PaginatedPartList`，`results` 的元素是 `Part`
-- 列表行使用：`pk`、`name`、`IPN`、`description`、`in_stock`
-- `in_stock` 可能为 `null`。界面把空值显示为 0
+| 位置 | 查询 |
+| --- | --- |
+| 「全部」，没有关键词 | `category=null`（只列未分类零件） |
+| 某个类别，没有关键词 | `category=<id>`，不带 `cascade` |
+| 「全部」里搜索 | `search=<关键词>` |
+| 某个类别里搜索 | `category=<id>&cascade=true&search=<关键词>` |
 
-不在本阶段实现分类、详情、创建和编辑。
+200 的模型是 `PaginatedPartList`，`results` 的元素是 `Part`。个别旧服务器可能直接返回数组。列表行使用：
+
+- `pk`、`name`、`IPN`、`description`
+- `in_stock`：可能为 `null`，界面把空值显示为 0
+- `units`：库存数字后面的单位，空则只显示数字
+- `thumbnail`：图片地址。空、外站或下载失败时，界面保留灰色占位
+
+卡片上只显示名称、缩略图和库存。IPN 与描述仍从响应里解析，当前不展示。不提交创建、编辑，也不实现零件详情。
+
+## 零件类别
+
+`GET {base}api/part/category/?limit=50&offset=0`
+
+- 在「全部」时加 `top_level=true`
+- 进入某个类别时改为 `parent=<id>`
+- 有关键词时不请求类别，列表只保留零件搜索结果
+- 需要类别的查看权限，否则 403
+- 200 的模型是 `PaginatedCategoryList`。界面使用 `pk`、`name`
+- 面包屑由界面按点击顺序记住，不另请求类别详情
+
+## 缩略图
+
+`thumbnail` 由 Rust 下载，界面只收到 data URL，不接触 token。
+
+- 只接受与服务器相同主机、相同端口的 `http` 或 `https`
+- 以 `/` 开头的路径接到站点根。`/media/...` 不挂在 API 子路径下
+- 响应需要是 `image/*`，且不超过 2MB
+- 空地址、外站地址、非图片或过大时不展示图片
 
 ## 档案
 

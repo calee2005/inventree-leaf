@@ -7,10 +7,9 @@ type Props = {
   serverId: string;
   onBack: () => void;
   onLoggedIn: (user: SessionUser) => void;
-  onOpenParts: () => void;
 };
 
-export function ConnectScreen({ serverId, onBack, onLoggedIn, onOpenParts }: Props) {
+export function ConnectScreen({ serverId, onBack, onLoggedIn }: Props) {
   const [server, setServer] = useState<ServerView | null>(null);
   const [info, setInfo] = useState<ServerInfo | null>(null);
   const [username, setUsername] = useState("");
@@ -138,14 +137,9 @@ export function ConnectScreen({ serverId, onBack, onLoggedIn, onOpenParts }: Pro
         登录
       </button>
       {server?.hasToken ? (
-        <>
-          <button className="secondary" type="button" onClick={onOpenParts}>
-            查看零件
-          </button>
-          <button className="danger" type="button" disabled={busy} onClick={() => void onLogout()}>
-            退出登录
-          </button>
-        </>
+        <button className="danger" type="button" disabled={busy} onClick={() => void onLogout()}>
+          退出登录
+        </button>
       ) : null}
       <button className="ghost" type="button" onClick={onBack}>
         返回

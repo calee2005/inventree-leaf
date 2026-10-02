@@ -3,7 +3,10 @@ import { ConnectScreen } from "./screens/ConnectScreen";
 import { PartsScreen } from "./screens/PartsScreen";
 import { ServerFormScreen } from "./screens/ServerFormScreen";
 import { ServersScreen } from "./screens/ServersScreen";
+import { AppShell, type ShellView } from "./shell/AppShell";
 import type { ServerView, SessionUser } from "./types";
+
+const signedInViews: ShellView[] = [{ id: "parts", title: "零件", color: "#2f78f6" }];
 
 type Screen =
   | { name: "list" }
@@ -15,12 +18,30 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: "list" });
 
   return (
-    <main className="shell">
+    <main className={screen.name === "parts" ? "shell shell-app" : screen.name === "list" ? "shell shell-list" : "shell"}>
       {screen.name === "list" ? (
         <ServersScreen
           onCreate={() => setScreen({ name: "edit", server: null })}
           onEdit={(server) => setScreen({ name: "edit", server })}
-          onOpen={(server) => setScreen({ name: "connect", serverId: server.id })}
+          onEnter={(server) =>
+            setScreen(
+              server.hasToken
+                ? {
+                    name: "parts",
+                    serverId: server.id,
+                    user: server.username
+                      ? {
+                          pk: 0,
+                          username: server.username,
+                          email: "",
+                          firstName: "",
+                          lastName: "",
+                        }
+                      : null,
+                  }
+                : { name: "connect", serverId: server.id },
+            )
+          }
         />
       ) : null}
       {screen.name === "edit" ? (
@@ -35,16 +56,27 @@ export default function App() {
           serverId={screen.serverId}
           onBack={() => setScreen({ name: "list" })}
           onLoggedIn={(user) => setScreen({ name: "parts", serverId: screen.serverId, user })}
-          onOpenParts={() => setScreen({ name: "parts", serverId: screen.serverId, user: null })}
         />
       ) : null}
       {screen.name === "parts" ? (
-        <PartsScreen
+        <AppShell
           serverId={screen.serverId}
           user={screen.user}
-          onBack={() => setScreen({ name: "connect", serverId: screen.serverId })}
+          views={signedInViews}
+          activeViewId="parts"
+          onChangeView={() => undefined}
           onLoggedOut={() => setScreen({ name: "connect", serverId: screen.serverId })}
-        />
+          onLeave={() => setScreen({ name: "list" })}
+        >
+          {(shell) => (
+            <PartsScreen
+              serverId={screen.serverId}
+              panel={shell.panel}
+              onPanel={shell.setPanel}
+              setActions={shell.setActions}
+            />
+          )}
+        </AppShell>
       ) : null}
     </main>
   );

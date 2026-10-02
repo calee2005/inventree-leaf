@@ -8,6 +8,7 @@ use uuid::Uuid;
 const STORE_FILE: &str = "leaf.json";
 const SERVERS_KEY: &str = "servers";
 const TOKENS_KEY: &str = "tokens";
+const USERNAMES_KEY: &str = "usernames";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -28,12 +29,15 @@ pub struct ServerView {
     pub trusted_certificate: bool,
     pub selected: bool,
     pub has_token: bool,
+    pub username: String,
 }
 
 impl ServerView {
-    fn from_record(record: ServerRecord, token: Option<&str>) -> Self {
+    fn from_record(record: ServerRecord, token: Option<&str>, username: String) -> Self {
+        let has_token = token.is_some_and(|value| !value.is_empty());
         Self {
-            has_token: token.is_some_and(|value| !value.is_empty()),
+            has_token,
+            username: if has_token { username } else { String::new() },
             id: record.id,
             name: record.name,
             server: record.server,
@@ -76,6 +80,12 @@ fn read_tokens(
     read_json(store, TOKENS_KEY)
 }
 
+fn read_usernames(
+    store: &tauri_plugin_store::Store<tauri::Wry>,
+) -> Result<HashMap<String, String>, ClientError> {
+    read_json(store, USERNAMES_KEY)
+}
+
 fn write_value(
     store: &tauri_plugin_store::Store<tauri::Wry>,
     key: &str,
@@ -88,12 +98,17 @@ fn write_value(
         .map_err(|err| ClientError::Storage(err.to_string()))
 }
 
-fn views_from(servers: Vec<ServerRecord>, tokens: &HashMap<String, String>) -> Vec<ServerView> {
+fn views_from(
+    servers: Vec<ServerRecord>,
+    tokens: &HashMap<String, String>,
+    usernames: &HashMap<String, String>,
+) -> Vec<ServerView> {
     servers
         .into_iter()
         .map(|server| {
             let token = tokens.get(&server.id).map(String::as_str);
-            ServerView::from_record(server, token)
+            let username = usernames.get(&server.id).cloned().unwrap_or_default();
+            ServerView::from_record(server, token, username)
         })
         .collect()
 }
@@ -102,7 +117,8 @@ pub fn list_servers(app: &AppHandle) -> Result<Vec<ServerView>, ClientError> {
     let store = open(app)?;
     let servers = read_servers(&store)?;
     let tokens = read_tokens(&store)?;
-    Ok(views_from(servers, &tokens))
+    let usernames = read_usernames(&store)?;
+    Ok(views_from(servers, &tokens, &usernames))
 }
 
 pub fn get_server(app: &AppHandle, id: &str) -> Result<ServerRecord, ClientError> {
@@ -129,6 +145,7 @@ pub fn save_server(
     let store = open(app)?;
     let mut servers = read_servers(&store)?;
     let tokens = read_tokens(&store)?;
+    let usernames = read_usernames(&store)?;
 
     if servers
         .iter()
@@ -176,6 +193,7 @@ pub fn save_server(
     Ok(ServerView::from_record(
         record.clone(),
         tokens.get(&record.id).map(String::as_str),
+        usernames.get(&record.id).cloned().unwrap_or_default(),
     ))
 }
 
@@ -191,8 +209,11 @@ pub fn delete_server(app: &AppHandle, id: &str) -> Result<(), ClientError> {
         .collect();
     let mut tokens = read_tokens(&store)?;
     tokens.remove(id);
+    let mut usernames = read_usernames(&store)?;
+    usernames.remove(id);
     write_value(&store, SERVERS_KEY, &servers)?;
     write_value(&store, TOKENS_KEY, &tokens)?;
+    write_value(&store, USERNAMES_KEY, &usernames)?;
     Ok(())
 }
 
@@ -207,14 +228,21 @@ pub fn select_server(app: &AppHandle, id: &str) -> Result<ServerView, ClientErro
     }
     write_value(&store, SERVERS_KEY, &servers)?;
     let tokens = read_tokens(&store)?;
+    let usernames = read_usernames(&store)?;
     let record = servers.into_iter().find(|server| server.id == id).unwrap();
     Ok(ServerView::from_record(
         record,
         tokens.get(id).map(String::as_str),
+        usernames.get(id).cloned().unwrap_or_default(),
     ))
 }
 
-pub fn set_token(app: &AppHandle, id: &str, token: &str) -> Result<(), ClientError> {
+pub fn set_session(
+    app: &AppHandle,
+    id: &str,
+    token: &str,
+    username: &str,
+) -> Result<(), ClientError> {
     if token.is_empty() {
         return Err(ClientError::Invalid("token 为空".into()));
     }
@@ -222,14 +250,20 @@ pub fn set_token(app: &AppHandle, id: &str, token: &str) -> Result<(), ClientErr
     let store = open(app)?;
     let mut tokens = read_tokens(&store)?;
     tokens.insert(id.to_string(), token.to_string());
-    write_value(&store, TOKENS_KEY, &tokens)
+    let mut usernames = read_usernames(&store)?;
+    usernames.insert(id.to_string(), username.trim().to_string());
+    write_value(&store, TOKENS_KEY, &tokens)?;
+    write_value(&store, USERNAMES_KEY, &usernames)
 }
 
 pub fn clear_token(app: &AppHandle, id: &str) -> Result<(), ClientError> {
     let store = open(app)?;
     let mut tokens = read_tokens(&store)?;
     tokens.remove(id);
-    write_value(&store, TOKENS_KEY, &tokens)
+    let mut usernames = read_usernames(&store)?;
+    usernames.remove(id);
+    write_value(&store, TOKENS_KEY, &tokens)?;
+    write_value(&store, USERNAMES_KEY, &usernames)
 }
 
 pub fn token_for(app: &AppHandle, id: &str) -> Result<String, ClientError> {

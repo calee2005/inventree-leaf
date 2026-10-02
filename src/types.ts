@@ -5,6 +5,7 @@ export type ServerView = {
   trustedCertificate: boolean;
   selected: boolean;
   hasToken: boolean;
+  username: string;
 };
 
 export type ServerInfo = {
@@ -27,11 +28,23 @@ export type PartSummary = {
   ipn: string;
   description: string;
   inStock: number;
+  units: string;
+  thumbnail: string;
 };
 
 export type PartPage = {
   count: number;
   results: PartSummary[];
+};
+
+export type CategorySummary = {
+  pk: number;
+  name: string;
+};
+
+export type CategoryPage = {
+  count: number;
+  results: CategorySummary[];
 };
 
 export type CommandFailure = {

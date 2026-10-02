@@ -14,7 +14,10 @@ pub fn run() {
             commands::test_connection,
             commands::login,
             commands::logout,
+            commands::current_user,
             commands::list_parts,
+            commands::list_part_categories,
+            commands::load_part_thumbnail,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

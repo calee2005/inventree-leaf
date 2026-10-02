@@ -1,47 +1,47 @@
 import { useEffect, useState } from "react";
+import {
+  SwipeableList,
+  SwipeableListItem,
+  SwipeAction,
+  TrailingActions,
+  Type,
+} from "react-swipeable-list";
+import "react-swipeable-list/dist/styles.css";
 import { deleteServer, listServers, readError, selectServer } from "../api";
+import { PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import type { CommandFailure, ServerView } from "../types";
 
 type Props = {
   onCreate: () => void;
   onEdit: (server: ServerView) => void;
-  onOpen: (server: ServerView) => void;
+  onEnter: (server: ServerView) => void;
 };
 
-export function ServersScreen({ onCreate, onEdit, onOpen }: Props) {
+export function ServersScreen({ onCreate, onEdit, onEnter }: Props) {
   const [servers, setServers] = useState<ServerView[]>([]);
   const [error, setError] = useState<CommandFailure | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let active = true;
-    listServers()
-      .then((items) => {
-        if (active) {
-          setServers(items);
-        }
-      })
-      .catch((reason: unknown) => {
-        if (active) {
-          setError(readError(reason));
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setLoading(false);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  async function openServer(server: ServerView) {
+  async function reload() {
     setError(null);
     try {
-      const selected = await selectServer(server.id);
-      onOpen(selected);
+      setServers(await listServers());
+    } catch (reason: unknown) {
+      setError(readError(reason));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void reload();
+  }, []);
+
+  async function enterServer(server: ServerView) {
+    setError(null);
+    try {
+      onEnter(await selectServer(server.id));
     } catch (reason: unknown) {
       setError(readError(reason));
     }
@@ -61,41 +61,66 @@ export function ServersScreen({ onCreate, onEdit, onOpen }: Props) {
   }
 
   return (
-    <section className="stack">
-      <header>
-        <div>
-          <h1>服务器</h1>
-          <p className="muted">添加 InvenTree 地址后测试连接并登录。</p>
-        </div>
-      </header>
+    <section className="server-list">
+      <div className="brand">
+        <img className="brand-logo" src="/logo.png" alt="" />
+        <p className="brand-name">InvenTree</p>
+      </div>
       <button className="primary" type="button" onClick={onCreate}>
         新增服务器
       </button>
+      <PullToRefresh onRefresh={reload}>
       <Notice error={error} />
       {loading ? <p className="muted">正在读取本机档案…</p> : null}
-      {!loading && servers.length === 0 ? (
-        <p className="muted">还没有服务器。</p>
-      ) : null}
-      {servers.map((server) => (
-        <article className="stack" key={server.id}>
-          <button className="server-card" type="button" onClick={() => void openServer(server)}>
-            <strong>{server.name}</strong>
-            <small>{server.server}</small>
-            <span className="badges">
-              {server.selected ? <span>当前</span> : null}
-              {server.hasToken ? <span>已登录</span> : null}
-            </span>
-          </button>
-          <div className="row-actions">
-            <button className="secondary" type="button" onClick={() => onEdit(server)}>
-              编辑
-            </button>
-            <button className="danger" type="button" onClick={() => void removeServer(server)}>
-              删除
-            </button>
-          </div>
-        </article>
-      ))}
+      {!loading && servers.length === 0 ? <p className="muted">还没有服务器。</p> : null}
+      <SwipeableList className="server-rows" type={Type.IOS} fullSwipe={false}>
+        {servers.map((server) => (
+          <SwipeableListItem
+            key={server.id}
+            maxSwipe={0.55}
+            trailingActions={
+              <TrailingActions>
+                <SwipeAction onClick={() => onEdit(server)}>
+                  <span className="server-swipe-edit">编辑</span>
+                </SwipeAction>
+                <SwipeAction onClick={() => void removeServer(server)}>
+                  <span className="server-swipe-delete">删除</span>
+                </SwipeAction>
+              </TrailingActions>
+            }
+          >
+            <div className="server-row-front">
+              <div className="server-row-text">
+                <strong>{server.name}</strong>
+                <small>{server.server}</small>
+                {server.username ? <span>{server.username}@{server.name}</span> : null}
+              </div>
+              <button
+                className="server-enter"
+                type="button"
+                aria-label={`进入${server.name}`}
+                onMouseDown={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void enterServer(server);
+                }}
+              >
+                <EnterIcon />
+              </button>
+            </div>
+          </SwipeableListItem>
+        ))}
+      </SwipeableList>
+      </PullToRefresh>
     </section>
+  );
+}
+
+function EnterIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
   );
 }

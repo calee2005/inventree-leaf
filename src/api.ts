@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  CategoryPage,
   CommandFailure,
   PartPage,
   ServerInfo,
@@ -61,6 +62,23 @@ export function logout(id: string) {
   return invoke<void>("logout", { id });
 }
 
-export function listParts(id: string) {
-  return invoke<PartPage>("list_parts", { id });
+export function currentUser(id: string) {
+  return invoke<SessionUser>("current_user", { id });
+}
+
+export function listParts(id: string, category: number | null, search: string, offset: number) {
+  return invoke<PartPage>("list_parts", {
+    id,
+    category,
+    search: search.trim() ? search.trim() : null,
+    offset,
+  });
+}
+
+export function listPartCategories(id: string, parent: number | null, offset: number) {
+  return invoke<CategoryPage>("list_part_categories", { id, parent, offset });
+}
+
+export function loadPartThumbnail(id: string, thumbnail: string) {
+  return invoke<string>("load_part_thumbnail", { id, thumbnail });
 }
