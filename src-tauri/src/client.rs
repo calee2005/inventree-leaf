@@ -121,6 +121,22 @@ pub struct CategoryPage {
     pub results: Vec<CategorySummary>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordSummary {
+    pub pk: i64,
+    pub title: String,
+    pub detail: String,
+    pub trailing: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordPage {
+    pub count: i64,
+    pub results: Vec<RecordSummary>,
+}
+
 pub const MAX_THUMBNAIL_BYTES: usize = 2 * 1024 * 1024;
 
 pub fn normalize_base(input: &str) -> Result<String, ClientError> {
@@ -384,6 +400,147 @@ pub fn category_list_url(
     with_query(&api_url(base, "api/part/category/")?, &pairs)
 }
 
+pub fn record_list_path(kind: &str) -> Result<&'static str, ClientError> {
+    match kind {
+        "stock" => Ok("api/stock/"),
+        "build" => Ok("api/build/"),
+        "purchase" => Ok("api/order/po/"),
+        "sales" => Ok("api/order/so/"),
+        "transfer" => Ok("api/order/transfer-order/"),
+        "supplier" | "customer" => Ok("api/company/"),
+        _ => Err(ClientError::Invalid("未知的列表".into())),
+    }
+}
+
+pub fn record_list_url(
+    base: &str,
+    kind: &str,
+    offset: u32,
+    search: &str,
+) -> Result<String, ClientError> {
+    let path = record_list_path(kind)?;
+    let mut pairs = vec![
+        ("limit", PART_PAGE_LIMIT.to_string()),
+        ("offset", offset.to_string()),
+    ];
+    let search = search.trim();
+    if !search.is_empty() {
+        pairs.push(("search", search.to_string()));
+    }
+    if kind == "stock" {
+        pairs.push(("part_detail", "true".to_string()));
+    }
+    if kind == "supplier" {
+        pairs.push(("is_supplier", "true".to_string()));
+    }
+    if kind == "customer" {
+        pairs.push(("is_customer", "true".to_string()));
+    }
+    with_query(&api_url(base, path)?, &pairs)
+}
+
+pub fn parse_record_page(kind: &str, body: &str) -> Result<RecordPage, ClientError> {
+    record_list_path(kind)?;
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| ClientError::MissingData("列表不是 JSON".into()))?;
+    if let Some(items) = value.as_array() {
+        let results = parse_record_rows(kind, items);
+        return Ok(RecordPage {
+            count: results.len() as i64,
+            results,
+        });
+    }
+    let results = value
+        .get("results")
+        .and_then(Value::as_array)
+        .map(|items| parse_record_rows(kind, items))
+        .unwrap_or_default();
+    let count = value
+        .get("count")
+        .and_then(Value::as_i64)
+        .unwrap_or(results.len() as i64);
+    Ok(RecordPage { count, results })
+}
+
+fn parse_record_rows(kind: &str, items: &[Value]) -> Vec<RecordSummary> {
+    items.iter().filter_map(|item| parse_record(kind, item)).collect()
+}
+
+fn parse_record(kind: &str, value: &Value) -> Option<RecordSummary> {
+    let pk = value.get("pk").and_then(Value::as_i64)?;
+    let (title, detail, trailing) = match kind {
+        "stock" => (
+            first_text(&[
+                nested_text(value, "part_detail", "full_name"),
+                nested_text(value, "part_detail", "name"),
+                string_field(value, "part__name"),
+            ]),
+            first_text(&[
+                string_field(value, "serial"),
+                string_field(value, "batch"),
+                nested_text(value, "location_detail", "name"),
+            ]),
+            stock_trailing(value),
+        ),
+        "build" => (
+            string_field(value, "reference"),
+            first_text(&[string_field(value, "title"), string_field(value, "part_name")]),
+            string_field(value, "status_text"),
+        ),
+        "supplier" | "customer" => (
+            string_field(value, "name"),
+            string_field(value, "description"),
+            String::new(),
+        ),
+        _ => (
+            string_field(value, "reference"),
+            string_field(value, "description"),
+            string_field(value, "status_text"),
+        ),
+    };
+    Some(RecordSummary {
+        pk,
+        title,
+        detail,
+        trailing,
+    })
+}
+
+fn first_text(values: &[String]) -> String {
+    values
+        .iter()
+        .find(|value| !value.trim().is_empty())
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn nested_text(value: &Value, object_key: &str, field: &str) -> String {
+    value
+        .get(object_key)
+        .and_then(|item| item.get(field))
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string()
+}
+
+fn stock_trailing(value: &Value) -> String {
+    let quantity = value.get("quantity").and_then(Value::as_f64);
+    let Some(quantity) = quantity else {
+        return String::new();
+    };
+    let text = if quantity.fract() == 0.0 {
+        format!("{}", quantity as i64)
+    } else {
+        format!("{quantity}")
+    };
+    let units = nested_text(value, "part_detail", "units");
+    if units.trim().is_empty() {
+        text
+    } else {
+        format!("{text} {units}")
+    }
+}
+
 fn with_query(url: &str, pairs: &[(&str, String)]) -> Result<String, ClientError> {
     let mut parsed = Url::parse(url).map_err(|_| ClientError::Invalid("地址无效".into()))?;
     {
@@ -594,6 +751,19 @@ pub async fn fetch_categories(
     parse_category_page(&body)
 }
 
+pub async fn fetch_records(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    kind: &str,
+    offset: u32,
+    search: &str,
+) -> Result<RecordPage, ClientError> {
+    let url = record_list_url(base, kind, offset, search)?;
+    let body = get_text(&url, trust_invalid_certs, Some(&format!("Token {token}"))).await?;
+    parse_record_page(kind, &body)
+}
+
 pub async fn fetch_part_thumbnail(
     base: &str,
     trust_invalid_certs: bool,
@@ -771,6 +941,64 @@ mod tests {
         assert_eq!(page.results[0].name, "耗材");
         let raw = parse_category_page(r#"[{"pk":2,"name":"3D打印耗材"}]"#).unwrap();
         assert_eq!(raw.results[0].pk, 2);
+    }
+
+    #[test]
+    fn parses_record_lists() {
+        let stock = parse_record_page(
+            "stock",
+            r#"{"count":1,"results":[{"pk":3,"quantity":12,"serial":"S1","part_detail":{"full_name":"螺丝","units":"个"},"location_detail":{"name":"A1"}}]}"#,
+        )
+        .unwrap();
+        assert_eq!(stock.results[0].title, "螺丝");
+        assert_eq!(stock.results[0].detail, "S1");
+        assert_eq!(stock.results[0].trailing, "12 个");
+
+        let build = parse_record_page(
+            "build",
+            r#"{"count":1,"results":[{"pk":4,"reference":"BO-1","title":"组装","status_text":"进行中"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(build.results[0].title, "BO-1");
+        assert_eq!(build.results[0].detail, "组装");
+        assert_eq!(build.results[0].trailing, "进行中");
+
+        let order = parse_record_page(
+            "purchase",
+            r#"[{"pk":5,"reference":"PO-9","description":"补货","status_text":"已下单"}]"#,
+        )
+        .unwrap();
+        assert_eq!(order.count, 1);
+        assert_eq!(order.results[0].title, "PO-9");
+        let company = parse_record_page(
+            "supplier",
+            r#"{"count":1,"results":[{"pk":6,"name":"甲公司","description":"耗材"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(company.results[0].title, "甲公司");
+        assert_eq!(company.results[0].detail, "耗材");
+        assert!(parse_record_page("unknown", r#"{"count":0,"results":[]}"#).is_err());
+    }
+
+    #[test]
+    fn builds_record_list_urls() {
+        let base = "https://demo.example.com/inventree";
+        assert_eq!(
+            record_list_url(base, "stock", 50, "螺丝").unwrap(),
+            "https://demo.example.com/inventree/api/stock/?limit=50&offset=50&search=%E8%9E%BA%E4%B8%9D&part_detail=true"
+        );
+        assert_eq!(
+            record_list_url(base, "transfer", 0, "").unwrap(),
+            "https://demo.example.com/inventree/api/order/transfer-order/?limit=50&offset=0"
+        );
+        assert_eq!(
+            record_list_url(base, "supplier", 0, "").unwrap(),
+            "https://demo.example.com/inventree/api/company/?limit=50&offset=0&is_supplier=true"
+        );
+        assert_eq!(
+            record_list_url(base, "customer", 0, "甲").unwrap(),
+            "https://demo.example.com/inventree/api/company/?limit=50&offset=0&search=%E7%94%B2&is_customer=true"
+        );
     }
 
     #[test]

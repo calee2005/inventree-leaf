@@ -688,6 +688,18 @@ input[type="password"] {
   padding: 14px 14px 12px;
 }
 
+.part-body small {
+  color: #8d93a0;
+}
+
+.record-card {
+  min-height: 76px;
+}
+
+.record-tools {
+  margin-left: auto;
+}
+
 .part-body strong {
   font-size: 16px;
   font-weight: 700;
@@ -720,29 +732,32 @@ input[type="password"] {
   text-align: center;
 }
 
-.shell.shell-app .view-menu button {
+.view-overlay {
+  position: absolute;
+  z-index: 6;
+  top: calc(56px + env(safe-area-inset-top));
+  left: 0;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  width: calc((100% - 68px) / 2);
+}
+
+.shell.shell-app .view-overlay button {
+  width: 100%;
   min-height: 44px;
-  padding: 10px 16px;
+  padding: 8px 12px;
+  border-radius: 0;
   background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--view-color, #2f78f6) 18%, #fff),
-    #fff 78%
+    100deg,
+    color-mix(in srgb, var(--view-color, #2f78f6) 28%, #f4f5f7) 0%,
+    color-mix(in srgb, var(--view-color, #2f78f6) 12%, #f4f5f7) 46%,
+    transparent 100%
   );
-  color: var(--view-color, #1c1c1e);
+  color: var(--view-color, #2f78f6);
+  font-size: 17px;
   font-weight: 650;
   text-align: left;
-}
-
-.shell-app .popover button.is-current {
-  font-weight: 650;
-}
-
-.view-menu {
-  top: calc(52px + env(safe-area-inset-top));
-  left: 12px;
-  min-width: 132px;
 }
 
 .server-menu {

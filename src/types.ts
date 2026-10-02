@@ -47,6 +47,18 @@ export type CategoryPage = {
   results: CategorySummary[];
 };
 
+export type RecordSummary = {
+  pk: number;
+  title: string;
+  detail: string;
+  trailing: string;
+};
+
+export type RecordPage = {
+  count: number;
+  results: RecordSummary[];
+};
+
 export type CommandFailure = {
   kind: string;
   message: string;

@@ -17,6 +17,7 @@ pub fn run() {
             commands::current_user,
             commands::list_parts,
             commands::list_part_categories,
+            commands::list_records,
             commands::load_part_thumbnail,
         ])
         .run(tauri::generate_context!())

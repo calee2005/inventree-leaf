@@ -3,6 +3,7 @@ import type {
   CategoryPage,
   CommandFailure,
   PartPage,
+  RecordPage,
   ServerInfo,
   ServerView,
   SessionUser,
@@ -77,6 +78,15 @@ export function listParts(id: string, category: number | null, search: string, o
 
 export function listPartCategories(id: string, parent: number | null, offset: number) {
   return invoke<CategoryPage>("list_part_categories", { id, parent, offset });
+}
+
+export function listRecords(id: string, kind: string, search: string, offset: number) {
+  return invoke<RecordPage>("list_records", {
+    id,
+    kind,
+    search: search.trim() ? search.trim() : null,
+    offset,
+  });
 }
 
 export function loadPartThumbnail(id: string, thumbnail: string) {

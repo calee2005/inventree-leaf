@@ -147,21 +147,22 @@ export function AppShell({
         </button>
       </header>
       {panel === "views" ? (
-        <div className="popover view-menu" onClick={(event) => event.stopPropagation()}>
-          {views.map((view) => (
-            <button
-              key={view.id}
-              className={view.id === activeViewId ? "is-current" : undefined}
-              type="button"
-              style={{ "--view-color": view.color } as CSSProperties}
-              onClick={() => {
-                onChangeView(view.id);
-                setPanel(null);
-              }}
-            >
-              <span>{view.title}</span>
-            </button>
-          ))}
+        <div className="view-overlay" onClick={(event) => event.stopPropagation()}>
+          {views
+            .filter((view) => view.id !== activeViewId)
+            .map((view) => (
+              <button
+                key={view.id}
+                type="button"
+                style={{ "--view-color": view.color } as CSSProperties}
+                onClick={() => {
+                  onChangeView(view.id);
+                  setPanel(null);
+                }}
+              >
+                {view.title}
+              </button>
+            ))}
         </div>
       ) : null}
       {panel === "server" ? (
