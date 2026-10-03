@@ -20,6 +20,7 @@ pub fn run() {
             commands::list_part_stock,
             commands::list_part_categories,
             commands::list_records,
+            commands::load_part_image,
             commands::load_part_thumbnail,
         ])
         .run(tauri::generate_context!())

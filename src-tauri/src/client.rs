@@ -153,6 +153,7 @@ pub struct PartDetail {
     pub full_name: String,
     pub description: String,
     pub thumbnail: String,
+    pub image: String,
     pub units: String,
     pub active: bool,
     pub assembly: bool,
@@ -215,6 +216,7 @@ pub struct PartStockPage {
 }
 
 pub const MAX_THUMBNAIL_BYTES: usize = 2 * 1024 * 1024;
+pub const MAX_PART_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 
 pub fn normalize_base(input: &str) -> Result<String, ClientError> {
     let trimmed = input.trim();
@@ -429,6 +431,7 @@ pub fn parse_part_detail(body: &str) -> Result<PartDetail, ClientError> {
         full_name,
         description: string_field(&value, "description"),
         thumbnail: string_field(&value, "thumbnail"),
+        image: string_field(&value, "image"),
         units: string_field(&value, "units"),
         active: bool_field(&value, "active", true),
         assembly: bool_field(&value, "assembly", false),
@@ -945,12 +948,16 @@ fn same_endpoint(left: &Url, right: &Url) -> bool {
         && left.port_or_known_default() == right.port_or_known_default()
 }
 
-pub fn image_data_url(content_type: &str, bytes: &[u8]) -> Result<String, ClientError> {
+pub fn image_data_url(
+    content_type: &str,
+    bytes: &[u8],
+    max_bytes: usize,
+) -> Result<String, ClientError> {
     if bytes.is_empty() {
         return Err(ClientError::MissingData("缩略图是空的".into()));
     }
-    if bytes.len() > MAX_THUMBNAIL_BYTES {
-        return Err(ClientError::Invalid("缩略图太大".into()));
+    if bytes.len() > max_bytes {
+        return Err(ClientError::Invalid(media_limit_message(max_bytes).into()));
     }
     let mime = content_type.split(';').next().unwrap_or("").trim();
     if !mime.starts_with("image/") || mime.contains('"') || mime.contains(' ') {
@@ -1282,7 +1289,33 @@ pub async fn fetch_part_thumbnail(
     token: &str,
     thumbnail: &str,
 ) -> Result<String, ClientError> {
-    let url = resolve_media_url(base, thumbnail)?;
+    fetch_part_media(
+        base,
+        trust_invalid_certs,
+        token,
+        thumbnail,
+        MAX_THUMBNAIL_BYTES,
+    )
+    .await
+}
+
+pub async fn fetch_part_image(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    image: &str,
+) -> Result<String, ClientError> {
+    fetch_part_media(base, trust_invalid_certs, token, image, MAX_PART_IMAGE_BYTES).await
+}
+
+async fn fetch_part_media(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    path: &str,
+    max_bytes: usize,
+) -> Result<String, ClientError> {
+    let url = resolve_media_url(base, path)?;
     let client = http_client(trust_invalid_certs)?;
     let response = client
         .get(&url)
@@ -1304,9 +1337,9 @@ pub async fn fetch_part_thumbnail(
     }
     if response
         .content_length()
-        .is_some_and(|length| length > MAX_THUMBNAIL_BYTES as u64)
+        .is_some_and(|length| length > max_bytes as u64)
     {
-        return Err(ClientError::Invalid("缩略图太大".into()));
+        return Err(ClientError::Invalid(media_limit_message(max_bytes).into()));
     }
     let mime = response
         .headers()
@@ -1315,7 +1348,15 @@ pub async fn fetch_part_thumbnail(
         .unwrap_or("")
         .to_string();
     let bytes = response.bytes().await.map_err(map_reqwest)?;
-    image_data_url(&mime, &bytes)
+    image_data_url(&mime, &bytes, max_bytes)
+}
+
+fn media_limit_message(max_bytes: usize) -> &'static str {
+    if max_bytes <= MAX_THUMBNAIL_BYTES {
+        "缩略图太大"
+    } else {
+        "图片太大"
+    }
 }
 
 #[cfg(test)]
@@ -1564,20 +1605,33 @@ mod tests {
 
     #[test]
     fn builds_image_data_urls() {
-        let url = image_data_url("image/png; charset=binary", b"png").unwrap();
+        let url = image_data_url("image/png; charset=binary", b"png", MAX_THUMBNAIL_BYTES).unwrap();
         assert_eq!(url, "data:image/png;base64,cG5n");
-        assert!(image_data_url("text/html", b"<p>").is_err());
-        assert!(image_data_url("image/png", b"").is_err());
-        assert!(image_data_url("image/png", &vec![0; MAX_THUMBNAIL_BYTES + 1]).is_err());
+        assert!(image_data_url("text/html", b"<p>", MAX_THUMBNAIL_BYTES).is_err());
+        assert!(image_data_url("image/png", b"", MAX_THUMBNAIL_BYTES).is_err());
+        assert!(image_data_url(
+            "image/png",
+            &vec![0; MAX_THUMBNAIL_BYTES + 1],
+            MAX_THUMBNAIL_BYTES
+        )
+        .is_err());
+        assert!(image_data_url(
+            "image/png",
+            &vec![0; MAX_THUMBNAIL_BYTES + 1],
+            MAX_PART_IMAGE_BYTES
+        )
+        .is_ok());
     }
 
     #[test]
     fn parses_part_detail_and_related_counts() {
         let detail = parse_part_detail(
-            r#"{"pk":9,"name":"电阻","full_name":"R 电阻","description":"10k","thumbnail":"/media/r.png","units":"个","active":false,"assembly":true,"component":true,"purchaseable":true,"salable":false,"in_stock":"4","category_name":"","category_detail":{"name":"电子"},"default_location_detail":{"name":"A1","pathstring":"仓库/A1"},"keywords":"电阻 10k","link":"https://example.com/r","notes":"注意极性","variant_of":3,"building":2,"scheduled_to_build":5,"allocated_to_build_orders":1,"required_for_build_orders":4,"ordering":6,"parameters":[{"pk":1,"data":"10k","template":2,"template_detail":{"name":"阻值","units":"Ω"},"model_id":9}]}"#,
+            r#"{"pk":9,"name":"电阻","full_name":"R 电阻","description":"10k","thumbnail":"/media/r.png","image":"/media/r-full.png","units":"个","active":false,"assembly":true,"component":true,"purchaseable":true,"salable":false,"in_stock":"4","category_name":"","category_detail":{"name":"电子"},"default_location_detail":{"name":"A1","pathstring":"仓库/A1"},"keywords":"电阻 10k","link":"https://example.com/r","notes":"注意极性","variant_of":3,"building":2,"scheduled_to_build":5,"allocated_to_build_orders":1,"required_for_build_orders":4,"ordering":6,"parameters":[{"pk":1,"data":"10k","template":2,"template_detail":{"name":"阻值","units":"Ω"},"model_id":9}]}"#,
         )
         .unwrap();
         assert_eq!(detail.full_name, "R 电阻");
+        assert_eq!(detail.image, "/media/r-full.png");
+        assert_eq!(detail.thumbnail, "/media/r.png");
         assert!(!detail.active);
         assert_eq!(detail.category_name, "电子");
         assert_eq!(detail.location, "仓库/A1");

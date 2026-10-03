@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useParams } from "react-router";
-import { getPart, listPartStock, readError } from "../api";
+import { getPart, listPartStock, loadPartImage, loadPartThumbnail, readError } from "../api";
 import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
@@ -163,7 +163,7 @@ export function PartDetailScreen() {
 
   const title = part?.fullName || part?.name || preview?.name || "零件";
   const description = part?.description || preview?.description || "";
-  const thumbnail = part?.thumbnail || preview?.thumbnail || "";
+  const thumbnail = part?.thumbnail || "";
   const stockLabel = part
     ? formatStock(part.inStock, part.units)
     : preview
@@ -202,14 +202,14 @@ export function PartDetailScreen() {
           await reload();
         }}
       >
-        <article className="part-card detail-hero">
-          <PartThumb serverId={serverId} thumbnail={thumbnail} />
-          <div className="part-body">
-            <div>
+        <article className="detail-hero">
+          <DetailPhoto serverId={serverId} image={part?.image || ""} thumbnail={thumbnail} />
+          <div className="detail-heading">
+            <div className="detail-title-row">
               <strong>{title}</strong>
-              {description ? <small>{description}</small> : null}
+              {stockLabel ? <span className="detail-stock">{stockLabel}</span> : null}
             </div>
-            {stockLabel ? <span className="part-qty">{stockLabel}</span> : null}
+            {description ? <p className="detail-spec">{description}</p> : null}
           </div>
         </article>
         {tab === "detail" ? (
@@ -337,6 +337,61 @@ function DetailRows({ part, onOpenTemplate }: { part: PartDetail; onOpenTemplate
         icon={<FileIcon />}
       />
     </div>
+  );
+}
+
+function DetailPhoto({
+  serverId,
+  image,
+  thumbnail,
+}: {
+  serverId: string;
+  image: string;
+  thumbnail: string;
+}) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    const full = image.trim();
+    const thumb = thumbnail.trim();
+    if (!full && !thumb) {
+      setSrc(null);
+      return;
+    }
+    let active = true;
+    const load = full
+      ? loadPartImage(serverId, full).catch(() => (thumb ? loadPartThumbnail(serverId, thumb) : Promise.reject()))
+      : loadPartThumbnail(serverId, thumb);
+    load
+      .then((url) => {
+        if (active) {
+          setSrc(url);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSrc(null);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [serverId, image, thumbnail]);
+
+  return (
+    <div className="detail-photo">
+      {src ? <img alt="" src={src} /> : <PhotoIcon />}
+    </div>
+  );
+}
+
+function PhotoIcon() {
+  return (
+    <svg className="detail-photo-fallback" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="4" y="5" width="16" height="14" rx="2" />
+      <circle cx="9" cy="10" r="1.2" />
+      <path d="M7 16l3.2-3.2 2.2 2.2L16 11.5 19 15" />
+    </svg>
   );
 }
 

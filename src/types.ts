@@ -49,6 +49,7 @@ export type PartDetail = {
   fullName: string;
   description: string;
   thumbnail: string;
+  image: string;
   units: string;
   active: boolean;
   assembly: boolean;

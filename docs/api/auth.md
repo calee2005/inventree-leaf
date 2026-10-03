@@ -71,7 +71,8 @@ token 写入单独的存储项，不放进服务器档案。
 
 同样使用 `Authorization: Token <value>`。需要零件的查看权限，否则 403。界面使用：
 
-- `pk`、`name`、`full_name`、`description`、`thumbnail`、`units`、`active`
+- `pk`、`name`、`full_name`、`description`、`image`、`thumbnail`、`units`、`active`
+- 宽图用 `image`。没有原图或原图下载失败时，才退回 `thumbnail`
 - `assembly`、`component`、`purchaseable`、`salable`
 - `in_stock`、`category_name`（空则用 `category_detail.name`）
 - `default_location_detail.pathstring`，空则用其中的 `name`

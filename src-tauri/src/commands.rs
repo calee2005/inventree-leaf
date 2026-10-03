@@ -188,6 +188,21 @@ pub async fn list_records(
 }
 
 #[tauri::command]
+pub async fn load_part_image(
+    app: AppHandle,
+    id: String,
+    image: String,
+) -> Result<String, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::fetch_part_image(&profile.server, profile.trusted_certificate, &token, &image).await,
+    )
+}
+
+#[tauri::command]
 pub async fn load_part_thumbnail(
     app: AppHandle,
     id: String,

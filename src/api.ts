@@ -99,6 +99,10 @@ export function listRecords(id: string, kind: string, search: string, offset: nu
   });
 }
 
+export function loadPartImage(id: string, image: string) {
+  return invoke<string>("load_part_image", { id, image });
+}
+
 export function loadPartThumbnail(id: string, thumbnail: string) {
   return invoke<string>("load_part_thumbnail", { id, thumbnail });
 }
