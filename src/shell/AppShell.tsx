@@ -1,7 +1,17 @@
-import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useLocation } from "react-router";
 import { currentUser, listServers, logout, readError } from "../api";
 import type { CommandFailure, ServerView, SessionUser } from "../types";
+import { AliveOutlet } from "./AliveOutlet";
 import { usePageStack } from "./pageStack";
 import { AppVersion } from "../ui/AppVersion";
 
@@ -32,7 +42,11 @@ type ShellApi = {
   accountLabel: string;
 };
 
-const ShellContext = createContext<ShellApi | null>(null);
+export const ShellContext = createContext<ShellApi | null>(null);
+
+export const ActionRegistryContext = createContext<(key: string, actions: ShellAction[]) => void>(() => {});
+
+const NO_ACTIONS: ShellAction[] = [];
 
 export function useShell() {
   const value = useContext(ShellContext);
@@ -48,7 +62,6 @@ type Props = {
   views: ShellView[];
   onLoggedOut: () => void;
   onLeave: () => void;
-  children: ReactNode;
 };
 
 function viewForPath(pathname: string, views: ShellView[]) {
@@ -57,14 +70,30 @@ function viewForPath(pathname: string, views: ShellView[]) {
   );
 }
 
-export function AppShell({ serverId, user, views, onLoggedOut, onLeave, children }: Props) {
+export function AppShell({ serverId, user, views, onLoggedOut, onLeave }: Props) {
   const location = useLocation();
   const stack = usePageStack();
   const [server, setServer] = useState<ServerView | null>(null);
   const [sessionName, setSessionName] = useState(user?.username ?? "");
   const [panel, setPanel] = useState<ShellPanel>(null);
-  const [actions, setActions] = useState<ShellAction[]>([]);
+  const [actionMap, setActionMap] = useState<Map<string, ShellAction[]>>(() => new Map());
   const [error, setError] = useState<CommandFailure | null>(null);
+  const registerActions = useCallback((key: string, next: ShellAction[]) => {
+    setActionMap((current) => {
+      if (current.get(key) === next) {
+        return current;
+      }
+      const copy = new Map(current);
+      copy.set(key, next);
+      return copy;
+    });
+  }, []);
+  const actions = actionMap.get(location.key) ?? NO_ACTIONS;
+  const locationKey = useRef(location.key);
+  locationKey.current = location.key;
+  const setActions = useCallback((next: ShellAction[]) => {
+    registerActions(locationKey.current, next);
+  }, [registerActions]);
   const active = viewForPath(location.pathname, views);
   const where = server?.name || "服务器";
   const accountLabel = sessionName ? `${sessionName}@${where}` : where;
@@ -80,7 +109,7 @@ export function AppShell({ serverId, user, views, onLoggedOut, onLeave, children
       active,
       accountLabel,
     }),
-    [serverId, panel, actions, error, views, active, accountLabel],
+    [serverId, panel, actions, setActions, error, views, active, accountLabel],
   );
 
   useEffect(() => {
@@ -149,8 +178,11 @@ export function AppShell({ serverId, user, views, onLoggedOut, onLeave, children
 
   return (
     <ShellContext.Provider value={shell}>
+      <ActionRegistryContext.Provider value={registerActions}>
       <div className="app-frame" onClick={() => setPanel(null)}>
-        <div className="page-stack">{children}</div>
+        <div className="page-stack">
+          <AliveOutlet />
+        </div>
         {panel === "views" ? (
           <div className="view-overlay" onClick={(event) => event.stopPropagation()}>
             {views
@@ -203,6 +235,7 @@ export function AppShell({ serverId, user, views, onLoggedOut, onLeave, children
           </div>
         ) : null}
       </div>
+      </ActionRegistryContext.Provider>
     </ShellContext.Provider>
   );
 }

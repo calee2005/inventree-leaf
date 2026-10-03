@@ -1,6 +1,7 @@
 import { type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { forceRefresh } from "../browser/release";
 import { Notice } from "../Notice";
-import { Subpage } from "../ui/Subpage";
+import { PageContent } from "../ui/PageContent";
 import { usePageStack } from "./pageStack";
 import { useShell, type ShellPanel } from "./AppShell";
 
@@ -58,7 +59,7 @@ export function PageFrame({ back = false, title, children }: Props) {
       </header>
       <div className="app-body">
         <Notice error={shell.error} />
-        {back ? <Subpage>{children}</Subpage> : children}
+        <PageContent>{children}</PageContent>
       </div>
       {!back && shell.actions.length > 0 ? (
         <div className="action-dock">
@@ -89,7 +90,14 @@ export function PageFrame({ back = false, title, children }: Props) {
 }
 
 function AppLogo() {
-  return <img className="app-mark" src={`${import.meta.env.BASE_URL}logo.png`} alt="" />;
+  return (
+    <button className="app-mark-button" type="button" aria-label="刷新" onClick={(event) => {
+      event.stopPropagation();
+      forceRefresh();
+    }}>
+      <img className="app-mark" src={`${import.meta.env.BASE_URL}logo.png`} alt="" />
+    </button>
+  );
 }
 
 function ChevronLeft() {

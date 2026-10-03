@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
-import { Picker } from "antd-mobile";
-import "antd-mobile/es/components/picker/picker.css";
-import "antd-mobile/es/components/picker-view/picker-view.css";
-import "antd-mobile/es/components/popup/popup.css";
-import "antd-mobile/es/components/mask/mask.css";
-import "antd-mobile/es/components/safe-area/safe-area.css";
+import Picker from "antd-mobile/es/components/picker";
 import { listStockLocations, readError } from "../api";
 import { Notice } from "../Notice";
 import type { CommandFailure, LookupHit } from "../types";

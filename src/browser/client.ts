@@ -19,6 +19,13 @@ import type {
   ServerInfo,
   ServerView,
   SessionUser,
+  StockItemDetail,
+  StockItemPage,
+  StockItemWrite,
+  StockLocationDetail,
+  StockLocationPage,
+  StockLocationSummary,
+  StockLocationWrite,
   SupplierPartDetail,
   SupplierPartPage,
   SupplierPartSummary,
@@ -860,6 +867,212 @@ export async function listStockLocations(id: string, offset: number): Promise<{ 
     return [hit];
   });
   return { count: pageCount(value, results), results };
+}
+
+export async function listStockLocationLevel(
+  id: string,
+  parent: number | null,
+  offset: number,
+  search = "",
+): Promise<StockLocationPage> {
+  const pairs: Array<[string, string]> = [
+    ["limit", String(PAGE_LIMIT)],
+    ["offset", String(offset)],
+    ["ordering", "name"],
+    parent === null ? ["top_level", "true"] : ["parent", String(parent)],
+  ];
+  if (search.trim()) {
+    pairs.push(["search", search.trim()]);
+  }
+  const value = await authed(id, withQuery(apiUrl(requireServer(id).server, "api/stock/location/"), pairs));
+  const results = pageItems(value).flatMap(parseLocationSummary);
+  return { count: pageCount(value, results), results };
+}
+
+export async function getStockLocation(id: string, pk: number): Promise<StockLocationDetail> {
+  const value = asObject(await authed(id, apiUrl(requireServer(id).server, `api/stock/location/${pk}/`)));
+  const summary = parseLocationSummary(value)[0];
+  if (!summary) {
+    throw fail("missingData", "库存地点里没有 pk");
+  }
+  const pathstring = summary.pathstring;
+  const segments = pathstring.split("/").filter((item) => item.trim());
+  segments.pop();
+  return { ...summary, parentId: idOf(value, "parent"), parentPath: segments.join("/"), structural: bool(value, "structural", false), external: bool(value, "external", false) };
+}
+
+export async function listLocationStock(
+  id: string,
+  location: number | null,
+  offset: number,
+  search = "",
+): Promise<StockItemPage> {
+  const pairs: Array<[string, string]> = [
+    ["limit", String(PAGE_LIMIT)],
+    ["offset", String(offset)],
+    ["location", location === null ? "null" : String(location)],
+    ["in_stock", "true"],
+    ["cascade", "true"],
+    ["part_detail", "true"],
+    ["location_detail", "true"],
+  ];
+  if (search.trim()) {
+    pairs.push(["search", search.trim()]);
+  }
+  const value = await authed(id, withQuery(apiUrl(requireServer(id).server, "api/stock/"), pairs));
+  const results = pageItems(value).flatMap((item) => {
+    const parsed = parseStockItem(item);
+    return parsed ? [parsed] : [];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function getStockItem(id: string, pk: number): Promise<StockItemDetail> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, `api/stock/${pk}/`), [
+      ["part_detail", "true"],
+      ["location_detail", "true"],
+    ]),
+  );
+  const item = parseStockItem(value);
+  if (!item) {
+    throw fail("missingData", "库存项里没有 pk");
+  }
+  return item;
+}
+
+export async function createStockLocation(id: string, input: StockLocationWrite): Promise<number> {
+  if (!input.name.trim()) {
+    throw fail("invalid", "请填写名称");
+  }
+  const value = await authed(id, apiUrl(requireServer(id).server, "api/stock/location/"), {
+    method: "POST",
+    json: locationBody(input),
+  });
+  const pk = idOf(value, "pk");
+  if (!pk) {
+    throw fail("missingData", "新地点里没有 pk");
+  }
+  return pk;
+}
+
+export async function updateStockLocation(id: string, pk: number, input: StockLocationWrite) {
+  if (!input.name.trim()) {
+    throw fail("invalid", "请填写名称");
+  }
+  await authed(id, apiUrl(requireServer(id).server, `api/stock/location/${pk}/`), {
+    method: "PATCH",
+    json: locationBody(input),
+  });
+}
+
+export async function deleteStockLocation(id: string, pk: number) {
+  await authed(id, apiUrl(requireServer(id).server, `api/stock/location/${pk}/`), { method: "DELETE" });
+}
+
+export async function createStockItem(id: string, input: StockItemWrite): Promise<number> {
+  if (input.part <= 0) {
+    throw fail("invalid", "请选择零件");
+  }
+  if (input.quantity <= 0) {
+    throw fail("invalid", "数量需要大于 0");
+  }
+  const value = await authed(id, apiUrl(requireServer(id).server, "api/stock/"), {
+    method: "POST",
+    json: stockItemBody(input),
+  });
+  const pk = idOf(value, "pk");
+  if (!pk) {
+    throw fail("missingData", "新库存项里没有 pk");
+  }
+  return pk;
+}
+
+export async function updateStockItem(id: string, pk: number, input: StockItemWrite) {
+  if (input.part <= 0) {
+    throw fail("invalid", "请选择零件");
+  }
+  if (input.quantity <= 0) {
+    throw fail("invalid", "数量需要大于 0");
+  }
+  await authed(id, apiUrl(requireServer(id).server, `api/stock/${pk}/`), {
+    method: "PATCH",
+    json: stockItemBody(input),
+  });
+}
+
+export async function deleteStockItem(id: string, pk: number) {
+  await authed(id, apiUrl(requireServer(id).server, `api/stock/${pk}/`), { method: "DELETE" });
+}
+
+function locationBody(input: StockLocationWrite) {
+  return {
+    name: input.name.trim(),
+    description: input.description,
+    parent: input.parent,
+    structural: input.structural,
+    external: input.external,
+  };
+}
+
+function stockItemBody(input: StockItemWrite) {
+  return {
+    part: input.part,
+    location: input.location,
+    quantity: input.quantity,
+    serial: input.serial.trim(),
+    status: input.status,
+    batch: input.batch.trim(),
+    packaging: input.packaging.trim(),
+    link: input.link.trim(),
+  };
+}
+
+function parseLocationSummary(value: unknown): StockLocationSummary[] {
+  const pk = idOf(value, "pk");
+  if (!pk) {
+    return [];
+  }
+  return [
+    {
+      pk,
+      name: text(value, "name"),
+      description: text(value, "description"),
+      pathstring: text(value, "pathstring"),
+      itemCount: num(value, "items"),
+    },
+  ];
+}
+
+function parseStockItem(value: unknown): StockItemDetail | null {
+  const pk = idOf(value, "pk");
+  if (!pk) {
+    return null;
+  }
+  const location = nested(value, "location_detail", "pathstring").trim() || nested(value, "location_detail", "name");
+  return {
+    pk,
+    partId: idOf(value, "part") ?? 0,
+    partName: firstText([nested(value, "part_detail", "full_name"), nested(value, "part_detail", "name")]),
+    partDescription: nested(value, "part_detail", "description"),
+    partThumbnail: nested(value, "part_detail", "thumbnail"),
+    quantity: num(value, "quantity"),
+    units: nested(value, "part_detail", "units"),
+    serial: text(value, "serial"),
+    batch: text(value, "batch"),
+    statusText: text(value, "status_text"),
+    status: typeof asObject(value)?.status === "number" ? (asObject(value)?.status as number) : 10,
+    inStock: bool(value, "in_stock", true),
+    locationId: idOf(value, "location"),
+    location,
+    packaging: text(value, "packaging"),
+    link: text(value, "link"),
+    supplierPartId: idOf(value, "supplier_part"),
+    supplierSku: text(value, "SKU"),
+    updated: text(value, "updated"),
+    stocktakeDate: text(value, "stocktake_date"),
+  };
 }
 
 export async function searchPartCategories(id: string, search: string): Promise<LookupHit[]> {

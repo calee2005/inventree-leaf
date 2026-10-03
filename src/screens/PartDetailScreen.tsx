@@ -217,6 +217,7 @@ export function PartDetailScreen() {
                   title={item.partName || title}
                   detail={item.location || "未设置位置"}
                   trailing={item.quantity || undefined}
+                  onClick={() => stack.push(`/stock/item/${item.pk}`)}
                 />
               ))}
             </ul>

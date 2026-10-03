@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, Outlet, createMemoryRouter } from "react-router";
+import { Navigate, createMemoryRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import { BomCreateScreen, BomLineScreen, BomListScreen } from "../screens/BomScreen";
 import { CategoryScreen } from "../screens/CategoryScreen";
@@ -10,6 +10,8 @@ import { SupplierPartDetailScreen, SupplierPartListScreen } from "../screens/Sup
 import { AboutScreen } from "../screens/AboutScreen";
 import { PartsScreen } from "../screens/PartsScreen";
 import { RecordListScreen } from "../screens/RecordListScreen";
+import { StockItemFormScreen, StockLocationFormScreen } from "../screens/StockFormScreen";
+import { StockItemScreen, StockLocationScreen } from "../screens/StockScreen";
 import type { SessionUser } from "../types";
 import { AppShell, type ShellView } from "./AppShell";
 import { PageFrame } from "./PageFrame";
@@ -26,7 +28,6 @@ const signedInViews: ShellView[] = [
 ];
 
 const recordViews: Record<string, { kind: string; emptyText: string }> = {
-  stock: { kind: "stock", emptyText: "这里还没有库存。" },
   supplier: { kind: "supplier", emptyText: "这里还没有供应商。" },
   customer: { kind: "customer", emptyText: "这里还没有客户。" },
   build: { kind: "build", emptyText: "这里还没有生产订单。" },
@@ -140,6 +141,62 @@ const signedInChildren = [
     ),
   },
   {
+    path: "/stock/location/new",
+    element: (
+      <PageFrame back title="新建仓储位置">
+        <StockLocationFormScreen mode="create" />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/stock/location/:locationId/edit",
+    element: (
+      <PageFrame back title="编辑位置">
+        <StockLocationFormScreen mode="edit" />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/stock/item/new",
+    element: (
+      <PageFrame back title="新建库存项">
+        <StockItemFormScreen mode="create" />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/stock/item/:itemId/edit",
+    element: (
+      <PageFrame back title="编辑库存项">
+        <StockItemFormScreen mode="edit" />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/stock/location/:locationId",
+    element: (
+      <PageFrame back title="库存地点">
+        <StockLocationScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/stock/item/:itemId",
+    element: (
+      <PageFrame back title="库存项">
+        <StockItemScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/stock",
+    element: (
+      <PageFrame>
+        <StockLocationScreen />
+      </PageFrame>
+    ),
+  },
+  {
     path: "/parts/:partId",
     element: (
       <PageFrame back title="零件详情">
@@ -170,9 +227,7 @@ export function SignedInApp({ serverId, user, onLoggedOut, onLeave }: Props) {
               views={signedInViews}
               onLoggedOut={onLoggedOut}
               onLeave={onLeave}
-            >
-              <Outlet />
-            </AppShell>
+            />
           ),
           children: signedInChildren,
         },

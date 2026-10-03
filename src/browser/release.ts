@@ -1,6 +1,13 @@
 const CHECK_INTERVAL_MS = 60_000;
 const RELOAD_KEY = "leaf-reloaded-script";
 
+export function forceRefresh() {
+  sessionStorage.removeItem(RELOAD_KEY);
+  const next = new URL(baseUrl());
+  next.searchParams.set("t", String(Date.now()));
+  window.location.replace(next.href);
+}
+
 export function watchRelease() {
   if (!import.meta.env.PROD) {
     return;

@@ -1,7 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Popup } from "antd-mobile";
-import "antd-mobile/es/components/popup/popup.css";
-import "antd-mobile/es/components/mask/mask.css";
+import Popup from "antd-mobile/es/components/popup";
 import { listParts, readError } from "../api";
 import { Notice } from "../Notice";
 import type { CommandFailure, PartSummary } from "../types";

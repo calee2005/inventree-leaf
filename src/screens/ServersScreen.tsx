@@ -7,6 +7,7 @@ import {
   Type,
 } from "react-swipeable-list";
 import "react-swipeable-list/dist/styles.css";
+import { forceRefresh } from "../browser/release";
 import { deleteServer, listServers, readError, selectServer } from "../api";
 import { PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
@@ -64,7 +65,9 @@ export function ServersScreen({ onCreate, onEdit, onEnter }: Props) {
   return (
     <section className="server-list">
       <div className="brand">
-        <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="" />
+        <button className="brand-logo-button" type="button" aria-label="刷新" onClick={forceRefresh}>
+          <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="" />
+        </button>
         <p className="brand-name">InvenTree</p>
         <AppVersion />
       </div>

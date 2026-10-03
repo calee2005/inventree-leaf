@@ -14,6 +14,13 @@
   --adm-color-box: #f5f5f5;
   --adm-color-light: #cccccc;
   --adm-color-weak: #999999;
+  --adm-color-white: #ffffff;
+  --adm-color-text-light-solid: #ffffff;
+  --adm-font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+body.adm-overflow-hidden {
+  overflow: hidden !important;
 }
 
 * {
@@ -608,10 +615,26 @@ button:not(:disabled):active,
   line-height: 1.1;
 }
 
+.shell.shell-app button.app-mark-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
 .app-mark {
   width: 28px;
   height: 28px;
   object-fit: contain;
+}
+
+button.brand-logo-button {
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
 }
 
 .shell-app .icon-button {
@@ -701,10 +724,15 @@ button:not(:disabled):active,
   padding-bottom: 12px;
 }
 
-.parts-view {
+.page-content {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  padding-top: 14px;
+}
+
+.page-content .detail-heading {
+  padding: 0 14px;
 }
 
 
@@ -1016,13 +1044,32 @@ button:not(:disabled):active,
 }
 
 .page-stack {
-  view-transition-name: page-stack;
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
   background: #f4f5f7;
+}
+
+.alive-page {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.alive-page:not(.is-hidden) {
+  view-transition-name: page-stack;
+  z-index: 1;
+}
+
+.alive-page.is-hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .page-frame {
@@ -1115,18 +1162,9 @@ button:not(:disabled):active,
   text-align: left;
 }
 
-.part-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.subpage {
-  padding-top: 14px;
-}
-
-.subpage .detail-heading {
-  padding: 0 14px;
+.part-detail,
+.parts-view {
+  display: contents;
 }
 
 .detail-stack {

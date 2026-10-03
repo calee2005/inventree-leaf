@@ -212,6 +212,73 @@ export type PartPriceDetail = {
   saleHistory: string;
 };
 
+export type StockLocationSummary = {
+  pk: number;
+  name: string;
+  description: string;
+  pathstring: string;
+  itemCount: number;
+};
+
+export type StockLocationDetail = StockLocationSummary & {
+  parentId: number | null;
+  parentPath: string;
+  structural: boolean;
+  external: boolean;
+};
+
+export type StockLocationWrite = {
+  name: string;
+  description: string;
+  parent: number | null;
+  structural: boolean;
+  external: boolean;
+};
+
+export type StockItemWrite = {
+  part: number;
+  location: number | null;
+  quantity: number;
+  serial: string;
+  status: number;
+  batch: string;
+  packaging: string;
+  link: string;
+};
+
+export type StockItemDetail = {
+  pk: number;
+  partId: number;
+  partName: string;
+  partDescription: string;
+  partThumbnail: string;
+  quantity: number;
+  units: string;
+  serial: string;
+  batch: string;
+  statusText: string;
+  status: number;
+  inStock: boolean;
+  locationId: number | null;
+  location: string;
+  packaging: string;
+  link: string;
+  supplierPartId: number | null;
+  supplierSku: string;
+  updated: string;
+  stocktakeDate: string;
+};
+
+export type StockItemPage = {
+  count: number;
+  results: StockItemDetail[];
+};
+
+export type StockLocationPage = {
+  count: number;
+  results: StockLocationSummary[];
+};
+
 export type PartStockItem = {
   pk: number;
   partName: string;

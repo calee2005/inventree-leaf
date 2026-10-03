@@ -1,14 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Cascader } from "antd-mobile";
+import Cascader from "antd-mobile/es/components/cascader";
 import type { CascaderOption } from "antd-mobile/es/components/cascader-view";
-import "antd-mobile/es/components/cascader/cascader.css";
-import "antd-mobile/es/components/cascader-view/cascader-view.css";
-import "antd-mobile/es/components/popup/popup.css";
-import "antd-mobile/es/components/mask/mask.css";
-import "antd-mobile/es/components/tabs/tabs.css";
-import "antd-mobile/es/components/check-list/check-list.css";
-import "antd-mobile/es/components/list/list.css";
-import "antd-mobile/es/components/skeleton/skeleton.css";
 import { getPartCategory, listPartCategories, readError } from "../api";
 import { Notice } from "../Notice";
 import type { CommandFailure, LookupHit } from "../types";
