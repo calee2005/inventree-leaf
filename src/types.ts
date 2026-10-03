@@ -351,6 +351,104 @@ export type SalesOrderShipment = {
   orderId: number | null;
 };
 
+export type OrderSummary = {
+  pk: number;
+  reference: string;
+  description: string;
+  statusText: string;
+  detail: string;
+  thumbnail: string;
+};
+
+export type BuildDetail = {
+  pk: number;
+  reference: string;
+  title: string;
+  statusText: string;
+  partId: number | null;
+  partName: string;
+  partThumbnail: string;
+  quantity: number;
+  completed: number;
+  batch: string;
+  external: boolean;
+  sourceId: number | null;
+  sourceName: string;
+  destinationId: number | null;
+  destinationName: string;
+  salesOrderId: number | null;
+  creationDate: string;
+  startDate: string;
+  targetDate: string;
+  completionDate: string;
+  notes: string;
+  link: string;
+};
+
+export type BuildLine = {
+  pk: number;
+  partId: number | null;
+  partName: string;
+  thumbnail: string;
+  quantity: number;
+  allocated: number;
+  consumed: number;
+  reference: string;
+  notes: string;
+};
+
+export type BuildAllocation = {
+  pk: number;
+  stockItemId: number | null;
+  partName: string;
+  thumbnail: string;
+  location: string;
+  quantity: number;
+};
+
+export type TransferOrderDetail = {
+  pk: number;
+  reference: string;
+  description: string;
+  statusText: string;
+  sourceId: number | null;
+  sourceName: string;
+  destinationId: number | null;
+  destinationName: string;
+  consume: boolean;
+  lineCount: number;
+  completedLines: number;
+  creationDate: string;
+  startDate: string;
+  targetDate: string;
+  completionDate: string;
+  notes: string;
+  link: string;
+};
+
+export type TransferLine = {
+  pk: number;
+  partId: number | null;
+  partName: string;
+  thumbnail: string;
+  quantity: number;
+  transferred: number;
+  allocated: number;
+  reference: string;
+  targetDate: string;
+  notes: string;
+};
+
+export type TransferAllocation = {
+  pk: number;
+  stockItemId: number | null;
+  partName: string;
+  thumbnail: string;
+  location: string;
+  serial: string;
+  quantity: number;
+};
+
 export type PartPriceDetail = {
   currency: string;
   priceRange: string;

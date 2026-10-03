@@ -1,18 +1,138 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useParams } from "react-router";
-import { getPurchaseOrder, listPurchaseOrderExtraLines, listPurchaseOrderLines, readError } from "../api";
+import { getPurchaseOrder, listPurchaseOrderExtraLines, listPurchaseOrderLines, listPurchaseOrders, readError } from "../api";
 import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
 import { useShell } from "../shell/AppShell";
-import type { CommandFailure, PurchaseOrderDetail, PurchaseOrderExtraLine, PurchaseOrderLine } from "../types";
+import type { CommandFailure, PurchaseOrderDetail, PurchaseOrderExtraLine, PurchaseOrderLine, PurchaseOrderSummary } from "../types";
 import { DetailGroup } from "../ui/DetailGroup";
 import { DetailHeading } from "../ui/DetailHeading";
 import { DetailRow } from "../ui/DetailRow";
 import { PartCard } from "../ui/PartCard";
 import { SectionLabel } from "../ui/SectionLabel";
+import { TextField } from "../ui/TextField";
 import { openLink } from "../ui/openLink";
 import { formatQty } from "../ui/quantity";
+
+export function PurchaseOrderListScreen() {
+  const { serverId } = useShell();
+  const stack = usePageStack();
+  const [searchInput, setSearchInput] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [orders, setOrders] = useState<PurchaseOrderSummary[]>([]);
+  const [error, setError] = useState<CommandFailure | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const offsetRef = useRef(0);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setQuery(searchInput.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
+
+  async function loadPage(offset: number, replace: boolean) {
+    const page = await listPurchaseOrders(serverId, null, query, offset);
+    setOrders((current) => (replace ? page.results : [...current, ...page.results]));
+    offsetRef.current = offset + page.results.length;
+    setHasMore(offsetRef.current < page.count);
+  }
+
+  async function reload() {
+    setError(null);
+    offsetRef.current = 0;
+    setHasMore(false);
+    try {
+      await loadPage(0, true);
+    } catch (reason: unknown) {
+      setError(readError(reason));
+      setHasMore(false);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    setLoading(true);
+    setOrders([]);
+    setHasMore(false);
+    void reload();
+  }, [serverId, query]);
+
+  function toggleSearch(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    setSearchOpen((open) => {
+      const next = !open;
+      if (next) {
+        window.setTimeout(() => searchRef.current?.focus(), 0);
+      }
+      return next;
+    });
+  }
+
+  return (
+    <div className="parts-view">
+      <div className="crumb-row">
+        <div className="crumb-tools record-tools">
+          <button
+            className={searchOpen ? "icon-button is-on" : "icon-button"}
+            type="button"
+            aria-label="检索"
+            aria-expanded={searchOpen}
+            onClick={toggleSearch}
+          >
+            <SearchIcon />
+          </button>
+        </div>
+      </div>
+      {searchOpen ? (
+        <TextField ref={searchRef} variant="search" placeholder="搜索采购订单" value={searchInput} onChange={setSearchInput} enterKeyHint="search" />
+      ) : null}
+      <Notice error={error} />
+      {loading ? <p className="muted">正在读取采购订单…</p> : null}
+      {!loading && orders.length === 0 && !error ? <p className="muted">这里还没有采购订单。</p> : null}
+      <PullToRefresh onRefresh={reload}>
+        <ul className="part-list">
+          {orders.map((order) => (
+            <PartCard
+              key={order.pk}
+              serverId={serverId}
+              thumbnail={order.thumbnail}
+              title={order.reference || "未编号"}
+              detail={order.description || order.supplierName || undefined}
+              trailing={order.statusText || undefined}
+              onClick={() => stack.push(`/purchase/${order.pk}`)}
+            />
+          ))}
+        </ul>
+        {orders.length > 0 || hasMore ? (
+          <InfiniteScroll
+            loadMore={async () => {
+              try {
+                await loadPage(offsetRef.current, false);
+              } catch (reason: unknown) {
+                setError(readError(reason));
+                throw reason;
+              }
+            }}
+            hasMore={hasMore}
+          />
+        ) : null}
+      </PullToRefresh>
+    </div>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="5.5" />
+      <path d="M15 15l4 4" />
+    </svg>
+  );
+}
 
 export function PurchaseOrderDetailScreen() {
   const { serverId } = useShell();

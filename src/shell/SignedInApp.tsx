@@ -26,7 +26,9 @@ import {
 } from "../screens/SupplierScreen";
 import { AboutScreen } from "../screens/AboutScreen";
 import { PartsScreen } from "../screens/PartsScreen";
-import { RecordListScreen } from "../screens/RecordListScreen";
+import { BuildAllocationScreen, BuildDetailScreen, BuildLineScreen, BuildListScreen, BuildOutputScreen } from "../screens/BuildScreen";
+import { PurchaseOrderListScreen } from "../screens/PurchaseOrderScreen";
+import { TransferAllocationScreen, TransferDetailScreen, TransferLineScreen, TransferListScreen } from "../screens/TransferScreen";
 import { StockItemFormScreen, StockLocationFormScreen } from "../screens/StockFormScreen";
 import { StockItemScreen, StockLocationScreen } from "../screens/StockScreen";
 import type { SessionUser } from "../types";
@@ -43,12 +45,6 @@ const signedInViews: ShellView[] = [
   { id: "purchase", path: "/purchase", title: "采购订单", color: "#d64545" },
   { id: "sales", path: "/sales", title: "销售订单", color: "#1a9aaa" },
 ];
-
-const recordViews: Record<string, { kind: string; emptyText: string }> = {
-  build: { kind: "build", emptyText: "这里还没有生产订单。" },
-  transfer: { kind: "transfer", emptyText: "这里还没有调拨单。" },
-  purchase: { kind: "purchase", emptyText: "这里还没有采购订单。" },
-};
 
 type Props = {
   serverId: string;
@@ -331,6 +327,86 @@ const signedInChildren = [
     ),
   },
   {
+    path: "/build/line/:lineId",
+    element: (
+      <PageFrame back title="行项目">
+        <BuildLineScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/build/:buildId/allocations",
+    element: (
+      <PageFrame back title="已分配库存">
+        <BuildAllocationScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/build/:buildId/outputs",
+    element: (
+      <PageFrame back title="构建输出">
+        <BuildOutputScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/build/:buildId",
+    element: (
+      <PageFrame back title="生产订单">
+        <BuildDetailScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/build",
+    element: (
+      <PageFrame>
+        <BuildListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/transfer/line/:lineId/allocations",
+    element: (
+      <PageFrame back title="已分配库存">
+        <TransferAllocationScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/transfer/line/:lineId",
+    element: (
+      <PageFrame back title="行项目">
+        <TransferLineScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/transfer/:orderId",
+    element: (
+      <PageFrame back title="调拨单">
+        <TransferDetailScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/transfer",
+    element: (
+      <PageFrame>
+        <TransferListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/purchase",
+    element: (
+      <PageFrame>
+        <PurchaseOrderListScreen />
+      </PageFrame>
+    ),
+  },
+  {
     path: "/purchase/:orderId",
     element: (
       <PageFrame back title="采购订单">
@@ -346,14 +422,6 @@ const signedInChildren = [
       </PageFrame>
     ),
   },
-  ...Object.entries(recordViews).map(([id, view]) => ({
-    path: `/${id}`,
-    element: (
-      <PageFrame>
-        <RecordListScreen kind={view.kind} emptyText={view.emptyText} />
-      </PageFrame>
-    ),
-  })),
   { path: "*", element: <Navigate to="/parts" replace /> },
 ];
 

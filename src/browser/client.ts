@@ -12,6 +12,13 @@ import type {
   SalesOrderLine,
   SalesOrderShipment,
   SalesOrderSummary,
+  BuildAllocation,
+  BuildDetail,
+  BuildLine,
+  OrderSummary,
+  TransferAllocation,
+  TransferLine,
+  TransferOrderDetail,
   BomItemWrite,
   BomLine,
   BomPage,
@@ -1629,17 +1636,19 @@ export async function countOutstandingPurchaseOrders(id: string, supplier: numbe
 
 export async function listPurchaseOrders(
   id: string,
-  supplier: number,
+  supplier: number | null,
   search: string,
   offset: number,
 ): Promise<{ count: number; results: PurchaseOrderSummary[] }> {
   const pairs: Array<[string, string]> = [
     ["limit", String(PAGE_LIMIT)],
     ["offset", String(offset)],
-    ["supplier", String(supplier)],
     ["supplier_detail", "true"],
     ["ordering", "-creation_date"],
   ];
+  if (supplier) {
+    pairs.push(["supplier", String(supplier)]);
+  }
   if (search.trim()) {
     pairs.push(["search", search.trim()]);
   }
@@ -1938,6 +1947,346 @@ export async function listPurchaseOrderExtraLines(
         pk,
         description: text(item, "description"),
         price: price ? (currency ? `${price} ${currency}` : price) : "",
+      },
+    ];
+  });
+}
+
+async function placeName(id: string, value: unknown, detailKey: string, idKey: string) {
+  const placeId = idOf(value, idKey);
+  const nestedName = firstText([nested(value, detailKey, "pathstring"), nested(value, detailKey, "name")]);
+  if (nestedName || !placeId) {
+    return { id: placeId, name: nestedName };
+  }
+  try {
+    const location = await getStockLocation(id, placeId);
+    return { id: placeId, name: location.pathstring || location.name };
+  } catch {
+    return { id: placeId, name: "" };
+  }
+}
+
+export async function listBuildOrders(id: string, search: string, offset: number): Promise<{ count: number; results: OrderSummary[] }> {
+  const pairs: Array<[string, string]> = [
+    ["limit", String(PAGE_LIMIT)],
+    ["offset", String(offset)],
+    ["part_detail", "true"],
+    ["ordering", "-creation_date"],
+  ];
+  if (search.trim()) {
+    pairs.push(["search", search.trim()]);
+  }
+  const value = await authed(id, withQuery(apiUrl(requireServer(id).server, "api/build/"), pairs));
+  const results = pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const summary: OrderSummary = {
+      pk,
+      reference: text(item, "reference"),
+      description: text(item, "title"),
+      statusText: text(item, "status_text"),
+      detail: text(item, "part_name") || nested(item, "part_detail", "name"),
+      thumbnail: nested(item, "part_detail", "thumbnail"),
+    };
+    return [summary];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function getBuildOrder(id: string, pk: number): Promise<BuildDetail> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, `api/build/${pk}/`), [["part_detail", "true"]]),
+  );
+  const found = idOf(value, "pk");
+  if (!found) {
+    throw fail("missingData", "生产订单里没有 pk");
+  }
+  const [source, destination] = await Promise.all([
+    placeName(id, value, "take_from_detail", "take_from"),
+    placeName(id, value, "destination_detail", "destination"),
+  ]);
+  return {
+    pk: found,
+    reference: text(value, "reference"),
+    title: text(value, "title"),
+    statusText: text(value, "status_text"),
+    partId: idOf(value, "part"),
+    partName: text(value, "part_name") || firstText([nested(value, "part_detail", "full_name"), nested(value, "part_detail", "name")]),
+    partThumbnail: nested(value, "part_detail", "thumbnail"),
+    quantity: num(value, "quantity"),
+    completed: num(value, "completed"),
+    batch: text(value, "batch"),
+    external: bool(value, "external", false),
+    sourceId: source.id,
+    sourceName: source.name,
+    destinationId: destination.id,
+    destinationName: destination.name,
+    salesOrderId: idOf(value, "sales_order"),
+    creationDate: text(value, "creation_date"),
+    startDate: text(value, "start_date"),
+    targetDate: text(value, "target_date"),
+    completionDate: text(value, "completion_date"),
+    notes: text(value, "notes").trim(),
+    link: text(value, "link"),
+  };
+}
+
+export async function listBuildLines(id: string, build: number, offset: number): Promise<{ count: number; results: BuildLine[] }> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/build/line/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", String(offset)],
+      ["build", String(build)],
+      ["part_detail", "true"],
+    ]),
+  );
+  const results = pageItems(value).flatMap((item) => {
+    const linePk = idOf(item, "pk");
+    if (!linePk) {
+      return [];
+    }
+    const line: BuildLine = {
+      pk: linePk,
+      partId: idOf(item, "part"),
+      partName: firstText([nested(item, "part_detail", "full_name"), nested(item, "part_detail", "name")]),
+      thumbnail: nested(item, "part_detail", "thumbnail"),
+      quantity: num(item, "quantity"),
+      allocated: num(item, "allocated"),
+      consumed: num(item, "consumed"),
+      reference: text(item, "reference"),
+      notes: text(item, "notes").trim(),
+    };
+    return [line];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function getBuildLine(id: string, pk: number): Promise<BuildLine> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, `api/build/line/${pk}/`), [["part_detail", "true"]]),
+  );
+  const found = idOf(value, "pk");
+  if (!found) {
+    throw fail("missingData", "物料行里没有 pk");
+  }
+  return {
+    pk: found,
+    partId: idOf(value, "part"),
+    partName: firstText([nested(value, "part_detail", "full_name"), nested(value, "part_detail", "name")]),
+    thumbnail: nested(value, "part_detail", "thumbnail"),
+    quantity: num(value, "quantity"),
+    allocated: num(value, "allocated"),
+    consumed: num(value, "consumed"),
+    reference: text(value, "reference"),
+    notes: text(value, "notes").trim(),
+  };
+}
+
+export async function listBuildAllocations(id: string, build: number): Promise<BuildAllocation[]> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/build/item/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", "0"],
+      ["build", String(build)],
+      ["part_detail", "true"],
+      ["location_detail", "true"],
+    ]),
+  );
+  return pageItems(value).flatMap((item) => {
+    const itemPk = idOf(item, "pk");
+    if (!itemPk) {
+      return [];
+    }
+    return [
+      {
+        pk: itemPk,
+        stockItemId: idOf(item, "stock_item"),
+        partName: firstText([nested(item, "part_detail", "full_name"), nested(item, "part_detail", "name")]),
+        thumbnail: nested(item, "part_detail", "thumbnail"),
+        location: firstText([nested(item, "location_detail", "pathstring"), nested(item, "location_detail", "name")]),
+        quantity: num(item, "quantity"),
+      },
+    ];
+  });
+}
+
+export async function listBuildOutputs(id: string, build: number, offset: number): Promise<PartStockPage> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/stock/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", String(offset)],
+      ["build", String(build)],
+      ["part_detail", "true"],
+      ["location_detail", "true"],
+    ]),
+  );
+  const results = pageItems(value).flatMap((item) => {
+    const itemPk = idOf(item, "pk");
+    if (!itemPk) {
+      return [];
+    }
+    const quantity = num(item, "quantity");
+    const units = nested(item, "part_detail", "units");
+    return [
+      {
+        pk: itemPk,
+        partName: firstText([nested(item, "part_detail", "full_name"), nested(item, "part_detail", "name")]),
+        location: firstText([nested(item, "location_detail", "pathstring"), nested(item, "location_detail", "name")]),
+        quantity: units.trim() ? `${formatQty(quantity)} ${units.trim()}` : formatQty(quantity),
+        thumbnail: nested(item, "part_detail", "thumbnail"),
+      },
+    ];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function listTransferOrders(id: string, search: string, offset: number): Promise<{ count: number; results: OrderSummary[] }> {
+  const pairs: Array<[string, string]> = [
+    ["limit", String(PAGE_LIMIT)],
+    ["offset", String(offset)],
+    ["ordering", "-creation_date"],
+  ];
+  if (search.trim()) {
+    pairs.push(["search", search.trim()]);
+  }
+  const value = await authed(id, withQuery(apiUrl(requireServer(id).server, "api/order/transfer-order/"), pairs));
+  const results = pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const summary: OrderSummary = {
+      pk,
+      reference: text(item, "reference"),
+      description: text(item, "description"),
+      statusText: text(item, "status_text"),
+      detail: "",
+      thumbnail: "",
+    };
+    return [summary];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function getTransferOrder(id: string, pk: number): Promise<TransferOrderDetail> {
+  const value = await authed(id, apiUrl(requireServer(id).server, `api/order/transfer-order/${pk}/`));
+  const found = idOf(value, "pk");
+  if (!found) {
+    throw fail("missingData", "调拨单里没有 pk");
+  }
+  const [source, destination] = await Promise.all([
+    placeName(id, value, "take_from_detail", "take_from"),
+    placeName(id, value, "destination_detail", "destination"),
+  ]);
+  return {
+    pk: found,
+    reference: text(value, "reference"),
+    description: text(value, "description"),
+    statusText: text(value, "status_text"),
+    sourceId: source.id,
+    sourceName: source.name,
+    destinationId: destination.id,
+    destinationName: destination.name,
+    consume: bool(value, "consume", false),
+    lineCount: num(value, "line_items"),
+    completedLines: num(value, "completed_lines"),
+    creationDate: text(value, "creation_date"),
+    startDate: text(value, "start_date"),
+    targetDate: text(value, "target_date"),
+    completionDate: text(value, "complete_date"),
+    notes: text(value, "notes").trim(),
+    link: text(value, "link"),
+  };
+}
+
+export async function listTransferLines(id: string, order: number, offset: number): Promise<{ count: number; results: TransferLine[] }> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/order/transfer-order-line/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", String(offset)],
+      ["order", String(order)],
+      ["part_detail", "true"],
+    ]),
+  );
+  const results = pageItems(value).flatMap((item) => {
+    const linePk = idOf(item, "pk");
+    if (!linePk) {
+      return [];
+    }
+    const line: TransferLine = {
+      pk: linePk,
+      partId: idOf(item, "part"),
+      partName: firstText([nested(item, "part_detail", "full_name"), nested(item, "part_detail", "name")]),
+      thumbnail: nested(item, "part_detail", "thumbnail"),
+      quantity: num(item, "quantity"),
+      transferred: num(item, "transferred"),
+      allocated: num(item, "allocated"),
+      reference: text(item, "reference"),
+      targetDate: text(item, "target_date"),
+      notes: text(item, "notes").trim(),
+    };
+    return [line];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function getTransferLine(id: string, pk: number): Promise<TransferLine> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, `api/order/transfer-order-line/${pk}/`), [["part_detail", "true"]]),
+  );
+  const found = idOf(value, "pk");
+  if (!found) {
+    throw fail("missingData", "调拨行里没有 pk");
+  }
+  return {
+    pk: found,
+    partId: idOf(value, "part"),
+    partName: firstText([nested(value, "part_detail", "full_name"), nested(value, "part_detail", "name")]),
+    thumbnail: nested(value, "part_detail", "thumbnail"),
+    quantity: num(value, "quantity"),
+    transferred: num(value, "transferred"),
+    allocated: num(value, "allocated"),
+    reference: text(value, "reference"),
+    targetDate: text(value, "target_date"),
+    notes: text(value, "notes").trim(),
+  };
+}
+
+export async function listTransferAllocations(id: string, line: number): Promise<TransferAllocation[]> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/order/transfer-order-allocation/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", "0"],
+      ["line", String(line)],
+      ["part_detail", "true"],
+      ["location_detail", "true"],
+      ["item_detail", "true"],
+    ]),
+  );
+  return pageItems(value).flatMap((item) => {
+    const itemPk = idOf(item, "pk");
+    if (!itemPk) {
+      return [];
+    }
+    return [
+      {
+        pk: itemPk,
+        stockItemId: idOf(item, "item"),
+        partName: firstText([nested(item, "part_detail", "full_name"), nested(item, "part_detail", "name")]),
+        thumbnail: nested(item, "part_detail", "thumbnail"),
+        location: firstText([nested(item, "location_detail", "pathstring"), nested(item, "location_detail", "name")]),
+        serial: text(item, "serial"),
+        quantity: num(item, "quantity"),
       },
     ];
   });
