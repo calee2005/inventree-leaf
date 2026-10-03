@@ -1,6 +1,6 @@
 use base64::Engine;
 use reqwest::Url;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Duration;
 
@@ -253,6 +253,62 @@ pub struct SupplierPartDetail {
     pub pack_quantity: String,
     pub link: String,
     pub note: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BomSubstitute {
+    pub pk: i64,
+    pub part_id: i64,
+    pub part_name: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BomLine {
+    pub pk: i64,
+    pub quantity: f64,
+    pub reference: String,
+    pub note: String,
+    pub allow_variants: bool,
+    pub inherited: bool,
+    pub optional: bool,
+    pub consumable: bool,
+    pub setup_quantity: f64,
+    pub attrition: f64,
+    pub rounding_multiple: Option<f64>,
+    pub validated: bool,
+    pub part_id: i64,
+    pub part_name: String,
+    pub part_thumbnail: String,
+    pub sub_part_id: i64,
+    pub sub_part_name: String,
+    pub sub_part_thumbnail: String,
+    pub substitutes: Vec<BomSubstitute>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BomPage {
+    pub count: i64,
+    pub results: Vec<BomLine>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BomItemWrite {
+    pub part: i64,
+    pub sub_part: i64,
+    pub quantity: f64,
+    pub reference: String,
+    pub note: String,
+    pub allow_variants: bool,
+    pub inherited: bool,
+    pub optional: bool,
+    pub consumable: bool,
+    pub setup_quantity: f64,
+    pub attrition: f64,
+    pub rounding_multiple: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -749,6 +805,115 @@ pub fn parse_supplier_part(body: &str) -> Result<SupplierPartDetail, ClientError
     })
 }
 
+pub fn parse_bom_page(body: &str) -> Result<BomPage, ClientError> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| ClientError::MissingData("物料清单不是 JSON".into()))?;
+    if let Some(items) = value.as_array() {
+        let results = parse_bom_rows(items);
+        return Ok(BomPage {
+            count: results.len() as i64,
+            results,
+        });
+    }
+    let results = value
+        .get("results")
+        .and_then(Value::as_array)
+        .map(|items| parse_bom_rows(items))
+        .unwrap_or_default();
+    let count = value
+        .get("count")
+        .and_then(json_i64)
+        .unwrap_or(results.len() as i64);
+    Ok(BomPage { count, results })
+}
+
+fn parse_bom_rows(items: &[Value]) -> Vec<BomLine> {
+    items.iter().filter_map(parse_bom_line).collect()
+}
+
+pub fn parse_bom_line_body(body: &str) -> Result<BomLine, ClientError> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| ClientError::MissingData("物料行不是 JSON".into()))?;
+    parse_bom_line(&value).ok_or_else(|| ClientError::MissingData("物料行里没有 pk".into()))
+}
+
+fn parse_bom_line(value: &Value) -> Option<BomLine> {
+    let pk = value.get("pk").and_then(json_i64)?;
+    Some(BomLine {
+        pk,
+        quantity: number_field(value, "quantity"),
+        reference: string_field(value, "reference"),
+        note: string_field(value, "note"),
+        allow_variants: bool_field(value, "allow_variants", true),
+        inherited: bool_field(value, "inherited", false),
+        optional: bool_field(value, "optional", false),
+        consumable: bool_field(value, "consumable", false),
+        setup_quantity: number_field(value, "setup_quantity"),
+        attrition: number_field(value, "attrition"),
+        rounding_multiple: match value.get("rounding_multiple") {
+            Some(Value::Null) | None => None,
+            Some(_) => Some(number_field(value, "rounding_multiple")),
+        },
+        validated: bool_field(value, "validated", false),
+        part_id: optional_id(value, "part").unwrap_or(0),
+        part_name: first_text(&[
+            nested_text(value, "part_detail", "full_name"),
+            nested_text(value, "part_detail", "name"),
+        ]),
+        part_thumbnail: nested_text(value, "part_detail", "thumbnail"),
+        sub_part_id: optional_id(value, "sub_part").unwrap_or(0),
+        sub_part_name: first_text(&[
+            nested_text(value, "sub_part_detail", "full_name"),
+            nested_text(value, "sub_part_detail", "name"),
+        ]),
+        sub_part_thumbnail: nested_text(value, "sub_part_detail", "thumbnail"),
+        substitutes: parse_bom_substitutes(value),
+    })
+}
+
+fn parse_bom_substitutes(value: &Value) -> Vec<BomSubstitute> {
+    value
+        .get("substitutes")
+        .and_then(Value::as_array)
+        .map(|items| items.iter().filter_map(parse_bom_substitute).collect())
+        .unwrap_or_default()
+}
+
+pub fn parse_bom_substitute_body(body: &str) -> Result<BomSubstitute, ClientError> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| ClientError::MissingData("替代料不是 JSON".into()))?;
+    parse_bom_substitute(&value).ok_or_else(|| ClientError::MissingData("替代料里没有 pk".into()))
+}
+
+fn parse_bom_substitute(value: &Value) -> Option<BomSubstitute> {
+    let pk = value.get("pk").and_then(json_i64)?;
+    Some(BomSubstitute {
+        pk,
+        part_id: optional_id(value, "part").unwrap_or(0),
+        part_name: first_text(&[
+            nested_text(value, "part_detail", "full_name"),
+            nested_text(value, "part_detail", "name"),
+        ]),
+    })
+}
+
+fn bom_write_body(input: &BomItemWrite) -> Value {
+    serde_json::json!({
+        "part": input.part,
+        "sub_part": input.sub_part,
+        "quantity": input.quantity,
+        "reference": input.reference,
+        "note": input.note,
+        "allow_variants": input.allow_variants,
+        "inherited": input.inherited,
+        "optional": input.optional,
+        "consumable": input.consumable,
+        "setup_quantity": input.setup_quantity,
+        "attrition": input.attrition,
+        "rounding_multiple": input.rounding_multiple,
+    })
+}
+
 fn parse_stock_rows(items: &[Value]) -> Vec<PartStockItem> {
     items.iter().filter_map(parse_stock_item).collect()
 }
@@ -970,6 +1135,43 @@ pub fn attachment_count_url(base: &str, pk: i64) -> Result<String, ClientError> 
             ("offset", "0".to_string()),
             ("model_type", "part".to_string()),
             ("model_id", pk.to_string()),
+        ],
+    )
+}
+
+pub fn bom_list_url(
+    base: &str,
+    part: i64,
+    used_in: bool,
+    offset: u32,
+) -> Result<String, ClientError> {
+    if part <= 0 {
+        return Err(ClientError::Invalid("零件不存在".into()));
+    }
+    let mut pairs = vec![
+        ("limit", PART_PAGE_LIMIT.to_string()),
+        ("offset", offset.to_string()),
+        ("part_detail", "true".to_string()),
+        ("sub_part_detail", "true".to_string()),
+    ];
+    if used_in {
+        pairs.push(("uses", part.to_string()));
+    } else {
+        pairs.push(("part", part.to_string()));
+    }
+    with_query(&api_url(base, "api/bom/")?, &pairs)
+}
+
+pub fn bom_item_url(base: &str, pk: i64) -> Result<String, ClientError> {
+    if pk <= 0 {
+        return Err(ClientError::Invalid("物料行不存在".into()));
+    }
+    with_query(
+        &api_url(base, &format!("api/bom/{pk}/"))?,
+        &[
+            ("part_detail", "true".to_string()),
+            ("sub_part_detail", "true".to_string()),
+            ("substitutes", "true".to_string()),
         ],
     )
 }
@@ -1332,10 +1534,32 @@ async fn get_text(
     trust_invalid_certs: bool,
     authorization: Option<&str>,
 ) -> Result<String, ClientError> {
+    request_text(
+        reqwest::Method::GET,
+        url,
+        trust_invalid_certs,
+        authorization,
+        None,
+    )
+    .await
+}
+
+async fn request_text(
+    method: reqwest::Method,
+    url: &str,
+    trust_invalid_certs: bool,
+    authorization: Option<&str>,
+    json_body: Option<&Value>,
+) -> Result<String, ClientError> {
     let client = http_client(trust_invalid_certs)?;
-    let mut request = client.get(url).header("Accept", "application/json");
+    let mut request = client
+        .request(method, url)
+        .header("Accept", "application/json");
     if let Some(authorization) = authorization {
         request = request.header("Authorization", authorization);
+    }
+    if let Some(body) = json_body {
+        request = request.json(body);
     }
     let response = request.send().await.map_err(map_reqwest)?;
     let status = response.status().as_u16();
@@ -1549,6 +1773,157 @@ pub async fn fetch_supplier_part(
     let url = supplier_part_url(base, pk)?;
     let body = get_text(&url, trust_invalid_certs, Some(&format!("Token {token}"))).await?;
     parse_supplier_part(&body)
+}
+
+pub async fn fetch_bom(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    part: i64,
+    used_in: bool,
+    offset: u32,
+) -> Result<BomPage, ClientError> {
+    let url = bom_list_url(base, part, used_in, offset)?;
+    let body = get_text(&url, trust_invalid_certs, Some(&format!("Token {token}"))).await?;
+    parse_bom_page(&body)
+}
+
+pub async fn fetch_bom_item(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    pk: i64,
+) -> Result<BomLine, ClientError> {
+    let url = bom_item_url(base, pk)?;
+    let body = get_text(&url, trust_invalid_certs, Some(&format!("Token {token}"))).await?;
+    parse_bom_line_body(&body)
+}
+
+pub async fn create_bom_item(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    input: &BomItemWrite,
+) -> Result<BomLine, ClientError> {
+    if input.part <= 0 || input.sub_part <= 0 {
+        return Err(ClientError::Invalid("请选择装配体和组件".into()));
+    }
+    if input.quantity <= 0.0 {
+        return Err(ClientError::Invalid("数量需要大于 0".into()));
+    }
+    let url = api_url(base, "api/bom/")?;
+    let payload = bom_write_body(input);
+    let body = request_text(
+        reqwest::Method::POST,
+        &url,
+        trust_invalid_certs,
+        Some(&format!("Token {token}")),
+        Some(&payload),
+    )
+    .await?;
+    parse_bom_line_body(&body)
+}
+
+pub async fn update_bom_item(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    pk: i64,
+    input: &BomItemWrite,
+) -> Result<BomLine, ClientError> {
+    if input.quantity <= 0.0 {
+        return Err(ClientError::Invalid("数量需要大于 0".into()));
+    }
+    let url = api_url(base, &format!("api/bom/{pk}/"))?;
+    let payload = bom_write_body(input);
+    let body = request_text(
+        reqwest::Method::PATCH,
+        &url,
+        trust_invalid_certs,
+        Some(&format!("Token {token}")),
+        Some(&payload),
+    )
+    .await?;
+    parse_bom_line_body(&body)
+}
+
+pub async fn delete_bom_item(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    pk: i64,
+) -> Result<(), ClientError> {
+    let url = api_url(base, &format!("api/bom/{pk}/"))?;
+    request_text(
+        reqwest::Method::DELETE,
+        &url,
+        trust_invalid_certs,
+        Some(&format!("Token {token}")),
+        None,
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn validate_bom_item(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    pk: i64,
+    valid: bool,
+) -> Result<(), ClientError> {
+    let url = api_url(base, &format!("api/bom/{pk}/validate/"))?;
+    let payload = serde_json::json!({ "valid": valid });
+    request_text(
+        reqwest::Method::PUT,
+        &url,
+        trust_invalid_certs,
+        Some(&format!("Token {token}")),
+        Some(&payload),
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn create_bom_substitute(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    bom_item: i64,
+    part: i64,
+) -> Result<BomSubstitute, ClientError> {
+    if bom_item <= 0 || part <= 0 {
+        return Err(ClientError::Invalid("请选择替代零件".into()));
+    }
+    let url = api_url(base, "api/bom/substitute/")?;
+    let payload = serde_json::json!({ "bom_item": bom_item, "part": part });
+    let body = request_text(
+        reqwest::Method::POST,
+        &url,
+        trust_invalid_certs,
+        Some(&format!("Token {token}")),
+        Some(&payload),
+    )
+    .await?;
+    parse_bom_substitute_body(&body)
+}
+
+pub async fn delete_bom_substitute(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    pk: i64,
+) -> Result<(), ClientError> {
+    let url = api_url(base, &format!("api/bom/substitute/{pk}/"))?;
+    request_text(
+        reqwest::Method::DELETE,
+        &url,
+        trust_invalid_certs,
+        Some(&format!("Token {token}")),
+        None,
+    )
+    .await?;
+    Ok(())
 }
 
 pub async fn fetch_categories(
@@ -2055,5 +2430,16 @@ mod tests {
         assert!(supplier_part_list_url("https://demo.example.com", 9, 0)
             .unwrap()
             .contains("part=9"));
+        let bom = parse_bom_page(
+            r#"{"count":1,"results":[{"pk":3,"part":9,"sub_part":4,"quantity":2,"reference":"R1","note":"","allow_variants":true,"inherited":false,"optional":false,"consumable":false,"validated":true,"part_detail":{"full_name":"主板","thumbnail":"/a.png"},"sub_part_detail":{"full_name":"电阻","thumbnail":"/b.png"}}]}"#,
+        )
+        .unwrap();
+        assert_eq!(bom.results[0].sub_part_name, "电阻");
+        assert_eq!(bom.results[0].quantity, 2.0);
+        assert!(bom.results[0].validated);
+        assert!(bom_list_url("https://demo.example.com", 9, true, 0)
+            .unwrap()
+            .contains("uses=9"));
+        assert!(parse_bom_line_body("{}").is_err());
     }
 }

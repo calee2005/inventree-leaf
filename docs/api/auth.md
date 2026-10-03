@@ -94,6 +94,8 @@ token 写入单独的存储项，不放进服务器档案。
 | 附件数量 | `GET {base}api/attachment/?model_type=part&model_id={pk}&limit=1` |
 | 价格区间 | `GET {base}api/part/{pk}/pricing/`，读 `currency`、`overall_min`、`overall_max` |
 
+装配件的「物料清单」打开 `GET {base}api/bom/?part={pk}&part_detail=true&sub_part_detail=true`。组件的「用于装配」改为 `uses={pk}`。点物料行读取 `GET {base}api/bom/{id}/?part_detail=true&sub_part_detail=true&substitutes=true`。维护走 `POST /api/bom/`、`PATCH /api/bom/{id}/`、`DELETE /api/bom/{id}/`、`PUT /api/bom/{id}/validate/`，替代料走 `POST /api/bom/substitute/` 和 `DELETE /api/bom/substitute/{id}/`。
+
 可采购且有供应商零件时，「供应商」打开 `GET {base}api/company/part/?part={pk}&supplier_detail=true&part_detail=true`。点开一条再读 `GET {base}api/company/part/{id}/`，并带上 `supplier_detail`、`part_detail`、`manufacturer_detail`。列表使用 `SKU`、供应商名称和缩略图；详情使用内部零件、是否主供应商、库存、供应商、供应商零件编号、制造商、MPN、包装、链接和备注。
 
 价格行可以打开价格页，仍请求 `GET {base}api/part/{pk}/pricing/`。页面使用币种、总价区间、最低/最高覆盖价，以及内部成本、变体成本、物料清单成本、采购价格、供应商价格、销售价格和销售历史。变体成本只在 `is_template` 时显示，物料清单成本只在装配件显示，采购和供应商价格只在可采购时显示，销售两项只在可销售时显示。

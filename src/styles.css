@@ -965,6 +965,53 @@ input[type="password"] {
   text-align: left;
 }
 
+.shell.shell-app button.form-primary,
+.shell.shell-app button.form-danger {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  border-radius: 999px;
+  font-weight: 650;
+}
+
+.shell.shell-app button.form-primary {
+  background: #2f78f6;
+  color: #fff;
+}
+
+.shell.shell-app button.form-danger {
+  background: #fff;
+  color: #9b2c2c;
+  border: 1px solid #e4c1c1;
+}
+
+.bom-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bom-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shell.shell-app button.bom-hit {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+}
+
+.shell.shell-app button.bom-hit.is-on {
+  outline: 2px solid rgba(47, 120, 246, 0.45);
+}
+
 .part-pricing .detail-heading,
 .subpage-top .detail-heading {
   padding: 0 14px;

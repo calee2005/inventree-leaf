@@ -84,6 +84,54 @@ export type PartDetail = {
   parameters: PartParameter[];
 };
 
+export type BomSubstitute = {
+  pk: number;
+  partId: number;
+  partName: string;
+};
+
+export type BomLine = {
+  pk: number;
+  quantity: number;
+  reference: string;
+  note: string;
+  allowVariants: boolean;
+  inherited: boolean;
+  optional: boolean;
+  consumable: boolean;
+  setupQuantity: number;
+  attrition: number;
+  roundingMultiple: number | null;
+  validated: boolean;
+  partId: number;
+  partName: string;
+  partThumbnail: string;
+  subPartId: number;
+  subPartName: string;
+  subPartThumbnail: string;
+  substitutes: BomSubstitute[];
+};
+
+export type BomPage = {
+  count: number;
+  results: BomLine[];
+};
+
+export type BomItemWrite = {
+  part: number;
+  subPart: number;
+  quantity: number;
+  reference: string;
+  note: string;
+  allowVariants: boolean;
+  inherited: boolean;
+  optional: boolean;
+  consumable: boolean;
+  setupQuantity: number;
+  attrition: number;
+  roundingMultiple: number | null;
+};
+
 export type SupplierPartSummary = {
   pk: number;
   sku: string;

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, Outlet, createMemoryRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
+import { BomCreateScreen, BomLineScreen, BomListScreen } from "../screens/BomScreen";
 import { CategoryScreen } from "../screens/CategoryScreen";
 import { PartDetailScreen } from "../screens/PartDetailScreen";
 import { PartPricingScreen } from "../screens/PartPricingScreen";
@@ -53,6 +54,38 @@ const signedInChildren = [
     element: (
       <PageFrame back title="零件类别">
         <CategoryScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/parts/:partId/bom/new",
+    element: (
+      <PageFrame back title="添加物料">
+        <BomCreateScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/parts/:partId/bom",
+    element: (
+      <PageFrame back title="物料清单">
+        <BomListScreen usedIn={false} />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/parts/:partId/used-in",
+    element: (
+      <PageFrame back title="用于装配">
+        <BomListScreen usedIn />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/parts/bom/:bomId",
+    element: (
+      <PageFrame back title="物料行">
+        <BomLineScreen />
       </PageFrame>
     ),
   },

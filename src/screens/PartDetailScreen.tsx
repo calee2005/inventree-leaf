@@ -224,6 +224,8 @@ export function PartDetailScreen() {
                 }
                 onOpenPricing={() => stack.push(`/parts/${part.pk}/pricing`)}
                 onOpenSuppliers={() => stack.push(`/parts/${part.pk}/suppliers`)}
+                onOpenBom={() => stack.push(`/parts/${part.pk}/bom`)}
+                onOpenUsedIn={() => stack.push(`/parts/${part.pk}/used-in`)}
               />
             ) : null}
           </>
@@ -259,12 +261,16 @@ function DetailRows({
   onOpenCategory,
   onOpenPricing,
   onOpenSuppliers,
+  onOpenBom,
+  onOpenUsedIn,
 }: {
   part: PartDetail;
   onOpenTemplate: (pk: number) => void;
   onOpenCategory: (id: number | null) => void;
   onOpenPricing: () => void;
   onOpenSuppliers: () => void;
+  onOpenBom: () => void;
+  onOpenUsedIn: () => void;
 }) {
   return (
     <div className="detail-group">
@@ -333,11 +339,17 @@ function DetailRows({
           onClick={onOpenPricing}
         />
       ) : null}
-      {part.assembly && part.bomCount > 0 ? (
-        <Row title="物料清单" aside={String(part.bomCount)} icon={<TreeIcon />} />
+      {part.assembly ? (
+        <Row title="物料清单" aside={String(part.bomCount)} icon={<TreeIcon />} onClick={onOpenBom} />
       ) : null}
       {part.component && part.usedInCount > 0 ? (
-        <Row title="用于装配" detail="需要此零件的装配体" aside={String(part.usedInCount)} icon={<StackIcon />} />
+        <Row
+          title="用于装配"
+          detail="需要此零件的装配体"
+          aside={String(part.usedInCount)}
+          icon={<StackIcon />}
+          onClick={onOpenUsedIn}
+        />
       ) : null}
       {part.keywords ? <Row title="关键词" detail={part.keywords} icon={<TagIcon />} /> : null}
       {part.link ? (

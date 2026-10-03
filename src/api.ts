@@ -6,6 +6,10 @@ import type {
   PartDetail,
   PartPage,
   PartPriceDetail,
+  BomItemWrite,
+  BomLine,
+  BomPage,
+  BomSubstitute,
   PartStockPage,
   SupplierPartDetail,
   SupplierPartPage,
@@ -92,6 +96,38 @@ export function getPartCategory(id: string, pk: number) {
 
 export function getPart(id: string, pk: number) {
   return invoke<PartDetail>("get_part", { id, pk });
+}
+
+export function listBom(id: string, part: number, usedIn: boolean, offset: number) {
+  return invoke<BomPage>("list_bom", { id, part, usedIn, offset });
+}
+
+export function getBomItem(id: string, pk: number) {
+  return invoke<BomLine>("get_bom_item", { id, pk });
+}
+
+export function createBomItem(id: string, input: BomItemWrite) {
+  return invoke<BomLine>("create_bom_item", { id, input });
+}
+
+export function updateBomItem(id: string, pk: number, input: BomItemWrite) {
+  return invoke<BomLine>("update_bom_item", { id, pk, input });
+}
+
+export function deleteBomItem(id: string, pk: number) {
+  return invoke<void>("delete_bom_item", { id, pk });
+}
+
+export function validateBomItem(id: string, pk: number, valid: boolean) {
+  return invoke<void>("validate_bom_item", { id, pk, valid });
+}
+
+export function createBomSubstitute(id: string, bomItem: number, part: number) {
+  return invoke<BomSubstitute>("create_bom_substitute", { id, bomItem, part });
+}
+
+export function deleteBomSubstitute(id: string, pk: number) {
+  return invoke<void>("delete_bom_substitute", { id, pk });
 }
 
 export function listSupplierParts(id: string, part: number, offset: number) {

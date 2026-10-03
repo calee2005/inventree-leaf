@@ -1,6 +1,7 @@
 use crate::client::{
-    self, CategoryPage, ClientError, PartCategory, PartDetail, PartPage, PartPriceDetail,
-    PartStockPage, RecordPage, SupplierPartDetail, SupplierPartPage,
+    self, BomItemWrite, BomLine, BomPage, BomSubstitute, CategoryPage, ClientError, PartCategory,
+    PartDetail, PartPage, PartPriceDetail, PartStockPage, RecordPage, SupplierPartDetail,
+    SupplierPartPage,
     ServerInfo, SessionUser,
 };
 use crate::store::{self, ServerView};
@@ -181,6 +182,149 @@ pub async fn get_supplier_part(
         &app,
         &id,
         client::fetch_supplier_part(&profile.server, profile.trusted_certificate, &token, pk).await,
+    )
+}
+
+#[tauri::command]
+pub async fn list_bom(
+    app: AppHandle,
+    id: String,
+    part: i64,
+    used_in: bool,
+    offset: Option<u32>,
+) -> Result<BomPage, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::fetch_bom(
+            &profile.server,
+            profile.trusted_certificate,
+            &token,
+            part,
+            used_in,
+            offset.unwrap_or(0),
+        )
+        .await,
+    )
+}
+
+#[tauri::command]
+pub async fn get_bom_item(app: AppHandle, id: String, pk: i64) -> Result<BomLine, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::fetch_bom_item(&profile.server, profile.trusted_certificate, &token, pk).await,
+    )
+}
+
+#[tauri::command]
+pub async fn create_bom_item(
+    app: AppHandle,
+    id: String,
+    input: BomItemWrite,
+) -> Result<BomLine, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::create_bom_item(&profile.server, profile.trusted_certificate, &token, &input).await,
+    )
+}
+
+#[tauri::command]
+pub async fn update_bom_item(
+    app: AppHandle,
+    id: String,
+    pk: i64,
+    input: BomItemWrite,
+) -> Result<BomLine, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::update_bom_item(
+            &profile.server,
+            profile.trusted_certificate,
+            &token,
+            pk,
+            &input,
+        )
+        .await,
+    )
+}
+
+#[tauri::command]
+pub async fn delete_bom_item(app: AppHandle, id: String, pk: i64) -> Result<(), ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::delete_bom_item(&profile.server, profile.trusted_certificate, &token, pk).await,
+    )
+}
+
+#[tauri::command]
+pub async fn validate_bom_item(
+    app: AppHandle,
+    id: String,
+    pk: i64,
+    valid: bool,
+) -> Result<(), ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::validate_bom_item(
+            &profile.server,
+            profile.trusted_certificate,
+            &token,
+            pk,
+            valid,
+        )
+        .await,
+    )
+}
+
+#[tauri::command]
+pub async fn create_bom_substitute(
+    app: AppHandle,
+    id: String,
+    bom_item: i64,
+    part: i64,
+) -> Result<BomSubstitute, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::create_bom_substitute(
+            &profile.server,
+            profile.trusted_certificate,
+            &token,
+            bom_item,
+            part,
+        )
+        .await,
+    )
+}
+
+#[tauri::command]
+pub async fn delete_bom_substitute(app: AppHandle, id: String, pk: i64) -> Result<(), ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::delete_bom_substitute(&profile.server, profile.trusted_certificate, &token, pk)
+            .await,
     )
 }
 
