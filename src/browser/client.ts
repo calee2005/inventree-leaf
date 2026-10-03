@@ -1,3 +1,4 @@
+import { rememberCompany, rememberPart } from "./recent";
 import type {
   CompanyDetail,
   CompanyPage,
@@ -568,6 +569,7 @@ export async function listParts(
   category: number | null,
   search: string,
   offset: number,
+  options?: { ordering?: string; allCategories?: boolean },
 ): Promise<PartPage> {
   const base = requireServer(id).server;
   const query = search.trim();
@@ -575,11 +577,14 @@ export async function listParts(
     ["limit", String(PAGE_LIMIT)],
     ["offset", String(offset)],
   ];
-  if (!query) {
+  if (options?.ordering) {
+    pairs.push(["ordering", options.ordering]);
+  }
+  if (!query && !options?.allCategories) {
     pairs.push(["category", category === null ? "null" : String(category)]);
-  } else if (category !== null) {
+  } else if (query && category !== null) {
     pairs.push(["category", String(category)], ["cascade", "true"], ["search", query]);
-  } else {
+  } else if (query) {
     pairs.push(["search", query]);
   }
   const value = await authed(id, withQuery(apiUrl(base, "api/part/"), pairs));
@@ -810,6 +815,15 @@ export async function getPart(id: string, pk: number): Promise<PartDetail> {
     detail.allocatedToSales = num(requirements, "allocated_to_sales_orders");
     detail.requiredForSales = num(requirements, "required_for_sales_orders");
   }
+  rememberPart(id, {
+    pk: detail.pk,
+    name: detail.name,
+    ipn: detail.ipn,
+    description: detail.description,
+    inStock: detail.inStock,
+    units: detail.units,
+    thumbnail: detail.thumbnail,
+  });
   return detail;
 }
 
@@ -1093,16 +1107,26 @@ function locationBody(input: StockLocationWrite) {
 }
 
 function stockItemBody(input: StockItemWrite) {
+  const serialNumbers = input.serialNumbers?.trim() ?? "";
   return {
     part: input.part,
     location: input.location,
     quantity: input.quantity,
-    serial: input.serial.trim(),
     status: input.status,
     batch: input.batch.trim(),
     packaging: input.packaging.trim(),
     link: input.link.trim(),
+    ...(serialNumbers
+      ? { serial_numbers: serialNumbers }
+      : input.serial.trim()
+        ? { serial: input.serial.trim() }
+        : {}),
   };
+}
+
+export async function getPartSerialNumbers(id: string, pk: number): Promise<{ next: string; latest: string }> {
+  const value = await authed(id, apiUrl(requireServer(id).server, `api/part/${pk}/serial-numbers/`));
+  return { next: text(value, "next"), latest: text(value, "latest") };
 }
 
 function parseLocationSummary(value: unknown): StockLocationSummary[] {
@@ -1657,7 +1681,7 @@ export async function getCompany(id: string, pk: number): Promise<CompanyDetail>
   if (!summary) {
     throw fail("missingData", "公司里没有 pk");
   }
-  return {
+  const detail = {
     ...summary,
     website: text(value, "website"),
     phone: text(value, "phone"),
@@ -1674,6 +1698,10 @@ export async function getCompany(id: string, pk: number): Promise<CompanyDetail>
     partsSupplied: num(value, "parts_supplied"),
     partsManufactured: num(value, "parts_manufactured"),
   };
+  if (detail.isSupplier) {
+    rememberCompany(id, summary);
+  }
+  return detail;
 }
 
 export async function listManufacturerParts(

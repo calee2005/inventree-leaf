@@ -260,11 +260,14 @@ button:not(:disabled):active,
   background: #f4f5f7;
 }
 
-.shell-app .lookup-results {
+.lookup-scroll {
   flex: 1;
-  align-content: start;
   min-height: 0;
   overflow: auto;
+}
+
+.shell-app .lookup-results {
+  align-content: start;
   gap: 8px;
 }
 

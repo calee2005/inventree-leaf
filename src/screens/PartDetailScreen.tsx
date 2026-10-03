@@ -169,7 +169,7 @@ export function PartDetailScreen() {
       return;
     }
     const pk = part.pk;
-    setActions([
+    const actions = [
       {
         id: "edit-part",
         label: "编辑零件",
@@ -180,9 +180,30 @@ export function PartDetailScreen() {
         label: "复制零件",
         onSelect: () => stackRef.current.push(`/parts/${pk}/duplicate`),
       },
-    ]);
+    ];
+    if (tab === "stock") {
+      const locationId = part.locationId;
+      const locationName = part.location;
+      const partName = part.name;
+      const units = part.units;
+      const trackable = part.trackable;
+      actions.push({
+        id: "add-stock",
+        label: "添加库存",
+        onSelect: () =>
+          stackRef.current.push("/stock/item/new", {
+            partId: pk,
+            partName,
+            units,
+            trackable,
+            locationId,
+            locationName,
+          }),
+      });
+    }
+    setActions(actions);
     return () => setActions([]);
-  }, [part, setActions]);
+  }, [part, tab, setActions]);
 
   const title = part?.fullName || part?.name || preview?.name || "零件";
   const description = part?.description || preview?.description || "";

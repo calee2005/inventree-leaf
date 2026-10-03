@@ -535,6 +535,7 @@ export type StockItemWrite = {
   location: number | null;
   quantity: number;
   serial: string;
+  serialNumbers?: string;
   status: number;
   batch: string;
   packaging: string;

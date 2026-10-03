@@ -4,6 +4,7 @@ import Picker from "antd-mobile/es/components/picker";
 import {
   createStockItem,
   createStockLocation,
+  getPartSerialNumbers,
   getStockItem,
   getStockLocation,
   readError,
@@ -41,6 +42,23 @@ const statuses = [
   { value: "75", label: "隔离" },
   { value: "85", label: "退回" },
 ];
+
+function readPartPreset(state: unknown): { pk: number; name: string; units: string; trackable: boolean } | null {
+  if (typeof state !== "object" || state === null || !("partId" in state)) {
+    return null;
+  }
+  const record = state as Record<string, unknown>;
+  const pk = record.partId;
+  if (typeof pk !== "number" || pk <= 0) {
+    return null;
+  }
+  return {
+    pk,
+    name: typeof record.partName === "string" ? record.partName : "",
+    units: typeof record.units === "string" ? record.units : "",
+    trackable: record.trackable === true,
+  };
+}
 
 function readHit(state: unknown, idKey: string, nameKey: string): LookupHit | null {
   if (typeof state !== "object" || state === null || !(idKey in state)) {
@@ -191,11 +209,15 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
   const route = useLocation();
   const params = useParams();
   const itemPk = Number(params.itemId);
+  const partPreset = mode === "create" ? readPartPreset(route.state) : null;
   const preset = mode === "create" ? readHit(route.state, "locationId", "locationName") : null;
-  const [part, setPart] = useState<{ pk: number; name: string; units: string } | null>(null);
+  const [part, setPart] = useState<{ pk: number; name: string; units: string } | null>(
+    partPreset ? { pk: partPreset.pk, name: partPreset.name, units: partPreset.units } : null,
+  );
   const [location, setLocation] = useState<LookupHit | null>(preset);
   const [quantity, setQuantity] = useState("1");
   const [serial, setSerial] = useState("");
+  const [serialNumbers, setSerialNumbers] = useState("");
   const [status, setStatus] = useState("10");
   const [batch, setBatch] = useState("");
   const [packaging, setPackaging] = useState("");
@@ -243,6 +265,28 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
     };
   }, [mode, itemPk, serverId]);
 
+  const presetPk = partPreset?.pk ?? 0;
+  const presetTrackable = partPreset?.trackable === true;
+
+  useEffect(() => {
+    if (mode !== "create" || !presetTrackable || presetPk <= 0) {
+      return;
+    }
+    let active = true;
+    getPartSerialNumbers(serverId, presetPk)
+      .then((info) => {
+        if (active) {
+          setSerialNumbers(info.next || info.latest);
+        }
+      })
+      .catch(() => {
+        // 拿不到下一个序列号时，仍可以手填。
+      });
+    return () => {
+      active = false;
+    };
+  }, [mode, presetPk, presetTrackable, serverId]);
+
   useEffect(() => {
     if (loading) {
       setActions([]);
@@ -275,6 +319,7 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
       location: location?.pk ?? null,
       quantity: amount,
       serial,
+      serialNumbers: partPreset?.trackable ? serialNumbers : undefined,
       status: Number(status) || 10,
       batch,
       packaging,
@@ -315,13 +360,21 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
       }}
     >
       <Notice error={error} />
-      <PartLookup
-        serverId={serverId}
-        label="零件"
-        hint="此库存对应的零件"
-        value={part}
-        onChange={(next) => setPart({ pk: next.pk, name: next.name, units: next.units })}
-      />
+      {partPreset ? (
+        <div className="field">
+          <span>零件</span>
+          <div className="field-input">{partPreset.name || "未命名零件"}</div>
+          <small className="field-hint">库存将记在这个零件上</small>
+        </div>
+      ) : (
+        <PartLookup
+          serverId={serverId}
+          label="零件"
+          hint="此库存对应的零件"
+          value={part}
+          onChange={(next) => setPart({ pk: next.pk, name: next.name, units: next.units })}
+        />
+      )}
       <LocationSelect serverId={serverId} label="库存地点" hint="留空表示尚未入库到地点" value={location} onChange={setLocation} />
       <TextField
         label={part?.units.trim() ? `数量（${part.units.trim()}）` : "数量"}
@@ -330,7 +383,16 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
         value={quantity}
         onChange={setQuantity}
       />
-      <TextField label="序列号" hint="唯一件才需要填写" value={serial} onChange={setSerial} />
+      {partPreset?.trackable ? (
+        <TextField
+          label="序列号"
+          hint="下一个可用序列号，也可以填写一段号码"
+          value={serialNumbers}
+          onChange={setSerialNumbers}
+        />
+      ) : partPreset ? null : (
+        <TextField label="序列号" hint="唯一件才需要填写" value={serial} onChange={setSerial} />
+      )}
       <Picker
         columns={[statuses]}
         value={[status]}

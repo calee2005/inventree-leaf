@@ -17,6 +17,7 @@ export {
   deleteServer,
   getBomItem,
   getPart,
+  getPartSerialNumbers,
   getPartCategory,
   getPartPricing,
   getCompany,
@@ -78,6 +79,8 @@ export {
   uploadPartImage,
   validateBomItem,
 } from "./browser/client";
+
+export { rememberCompany, rememberPart, recentCompanies, recentParts } from "./browser/recent";
 
 export function readError(error: unknown): CommandFailure {
   if (typeof error === "object" && error !== null && "message" in error) {

@@ -1,11 +1,14 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Popup from "antd-mobile/es/components/popup";
-import { listCompanies, listParts, readError } from "../api";
+import { listCompanies, listParts, readError, rememberCompany, rememberPart, recentCompanies, recentParts } from "../api";
+import { InfiniteScroll } from "../MobileList";
 import { Notice } from "../Notice";
 import type { CommandFailure, CompanySummary, PartSummary } from "../types";
 import { PartCard } from "./PartCard";
 import { TextField } from "./TextField";
 import { formatStock } from "./quantity";
+
+type Page<T> = { results: T[]; count: number };
 
 type Props<T> = {
   label: string;
@@ -13,13 +16,27 @@ type Props<T> = {
   selectedLabel: string;
   selectedKey?: string;
   searchPlaceholder: string;
-  idleText: string;
   emptyText: string;
-  search: (query: string) => Promise<T[]>;
+  loadPage: (query: string, offset: number) => Promise<Page<T>>;
+  recentItems: () => T[];
   itemKey: (item: T) => string;
   renderItem: (item: T, selected: boolean, select: () => void) => ReactNode;
   onSelect: (item: T) => void;
 };
+
+function mergeUnique<T>(current: T[], incoming: T[], itemKey: (item: T) => string) {
+  const seen = new Set(current.map(itemKey));
+  const next = [...current];
+  for (const item of incoming) {
+    const key = itemKey(item);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    next.push(item);
+  }
+  return next;
+}
 
 export function LookupSheet<T>({
   label,
@@ -27,9 +44,9 @@ export function LookupSheet<T>({
   selectedLabel,
   selectedKey = "",
   searchPlaceholder,
-  idleText,
   emptyText,
-  search,
+  loadPage,
+  recentItems,
   itemKey,
   renderItem,
   onSelect,
@@ -39,52 +56,82 @@ export function LookupSheet<T>({
   const [items, setItems] = useState<T[]>([]);
   const [error, setError] = useState<CommandFailure | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const loadRef = useRef(loadPage);
+  const recentRef = useRef(recentItems);
+  const itemKeyRef = useRef(itemKey);
+  const serverOffset = useRef(0);
+  const queryRef = useRef("");
+  const generation = useRef(0);
+  loadRef.current = loadPage;
+  recentRef.current = recentItems;
+  itemKeyRef.current = itemKey;
 
   useEffect(() => {
     if (!open) {
       return;
     }
     const text = query.trim();
-    if (!text) {
-      setItems([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
+    const ticket = generation.current + 1;
+    generation.current = ticket;
+    queryRef.current = text;
     let active = true;
     setLoading(true);
+    setError(null);
+    setHasMore(false);
     const timer = window.setTimeout(() => {
-      search(text)
-        .then((next) => {
-          if (!active) {
+      void (async () => {
+        try {
+          const page = await loadRef.current(text, 0);
+          if (!active || generation.current !== ticket) {
             return;
           }
-          setItems(next);
+          const first = text ? page.results : mergeUnique(recentRef.current(), page.results, itemKeyRef.current);
+          setItems(first);
+          serverOffset.current = page.results.length;
+          setHasMore(serverOffset.current < page.count);
           setError(null);
-        })
-        .catch((reason: unknown) => {
-          if (active) {
+        } catch (reason: unknown) {
+          if (active && generation.current === ticket) {
             setItems([]);
+            setHasMore(false);
             setError(readError(reason));
           }
-        })
-        .finally(() => {
-          if (active) {
+        } finally {
+          if (active && generation.current === ticket) {
             setLoading(false);
           }
-        });
-    }, 300);
+        }
+      })();
+    }, text ? 300 : 0);
     return () => {
       active = false;
       window.clearTimeout(timer);
     };
   }, [open, query]);
 
+  async function loadMore() {
+    const ticket = generation.current;
+    const text = queryRef.current;
+    const page = await loadRef.current(text, serverOffset.current);
+    if (generation.current !== ticket) {
+      return;
+    }
+    if (page.results.length === 0) {
+      setHasMore(false);
+      return;
+    }
+    serverOffset.current += page.results.length;
+    setItems((current) => mergeUnique(current, page.results, itemKeyRef.current));
+    setHasMore(serverOffset.current < page.count);
+  }
+
   function choose(item: T) {
     onSelect(item);
     setOpen(false);
     setQuery("");
     setItems([]);
+    setHasMore(false);
   }
 
   return (
@@ -118,12 +165,26 @@ export function LookupSheet<T>({
         <div className="lookup-sheet">
           <TextField variant="search" placeholder={searchPlaceholder} value={query} onChange={setQuery} />
           <Notice error={error} />
-          {loading ? <p className="muted">正在查找…</p> : null}
-          {!loading && !query.trim() ? <p className="muted">{idleText}</p> : null}
-          {!loading && query.trim() && items.length === 0 && !error ? <p className="muted">{emptyText}</p> : null}
-          <ul className="part-list lookup-results">
-            {items.map((item) => renderItem(item, itemKey(item) === selectedKey, () => choose(item)))}
-          </ul>
+          {loading && items.length === 0 ? <p className="muted">正在查找…</p> : null}
+          {!loading && items.length === 0 && !error ? <p className="muted">{emptyText}</p> : null}
+          <div className="lookup-scroll">
+            <ul className="part-list lookup-results">
+              {items.map((item) => renderItem(item, itemKey(item) === selectedKey, () => choose(item)))}
+            </ul>
+            {items.length > 0 || hasMore ? (
+              <InfiniteScroll
+                loadMore={async () => {
+                  try {
+                    await loadMore();
+                  } catch (reason: unknown) {
+                    setError(readError(reason));
+                    throw reason;
+                  }
+                }}
+                hasMore={hasMore}
+              />
+            ) : null}
+          </div>
         </div>
       </Popup>
     </>
@@ -150,11 +211,14 @@ export function SupplierLookup({
       selectedLabel={value?.name ?? ""}
       selectedKey={value ? String(value.pk) : ""}
       searchPlaceholder="搜索供应商"
-      idleText="输入关键词开始查找"
       emptyText="没有匹配的供应商"
-      search={async (query) => (await listCompanies(serverId, 0, { supplier: true, search: query })).results}
+      recentItems={() => recentCompanies(serverId)}
+      loadPage={(query, offset) => listCompanies(serverId, offset, { supplier: true, search: query })}
       itemKey={(company) => String(company.pk)}
-      onSelect={onChange}
+      onSelect={(company) => {
+        rememberCompany(serverId, company);
+        onChange(company);
+      }}
       renderItem={(company, selected, select) => (
         <PartCard
           serverId={serverId}
@@ -189,11 +253,16 @@ export function PartLookup({
       selectedLabel={value?.name ?? ""}
       selectedKey={value ? String(value.pk) : ""}
       searchPlaceholder="搜索零件"
-      idleText="输入关键词开始查找"
       emptyText="没有匹配的零件"
-      search={async (query) => (await listParts(serverId, null, query, 0)).results}
+      recentItems={() => recentParts(serverId)}
+      loadPage={(query, offset) =>
+        listParts(serverId, null, query, offset, { ordering: "-creation_date", allCategories: true })
+      }
       itemKey={(part) => String(part.pk)}
-      onSelect={onChange}
+      onSelect={(part) => {
+        rememberPart(serverId, part);
+        onChange(part);
+      }}
       renderItem={(part, selected, select) => (
         <PartCard
           serverId={serverId}
