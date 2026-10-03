@@ -733,12 +733,13 @@ button.brand-logo-button {
     calc(16px + env(safe-area-inset-left, 0px));
 }
 
-.page-frame:has(.action-dock) .app-body {
-  padding-bottom: 16px;
+.page-frame:has(.action-dock) {
+  --action-clearance: calc(78px + env(safe-area-inset-bottom, 0px));
 }
 
-.page-frame:has(.action-dock) .page-content {
-  padding-bottom: 8px;
+.page-frame:has(.action-dock) .pull-scroller,
+.page-frame:has(.action-dock) .app-body:not(:has(.pull-scroller)) {
+  padding-bottom: var(--action-clearance);
 }
 
 .page-content {
@@ -748,13 +749,13 @@ button.brand-logo-button {
   padding-top: 14px;
 }
 
-.app-body:has(.adm-pull-to-refresh) {
+.app-body:has(.pull-host) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.page-content:has(.adm-pull-to-refresh) {
+.page-content:has(.pull-host) {
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -765,13 +766,35 @@ button.brand-logo-button {
   flex: 1;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+  touch-action: pan-y;
 }
 
-.adm-pull-to-refresh {
+.pull-head {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  color: #8d93a0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.pull-host:not(.is-pulling) .pull-head {
+  transition: height 180ms ease;
+}
+
+.pull-head span {
+  padding-bottom: 8px;
+}
+
+.pull-scroller {
   flex: 1;
   min-height: 0;
   overflow: auto;
   overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .page-content .detail-heading {
@@ -1045,17 +1068,24 @@ button.brand-logo-button {
 }
 
 .action-dock {
-  position: relative;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
   display: flex;
-  flex: none;
   justify-content: center;
-  z-index: 2;
-  background: #f4f5f7;
+  pointer-events: none;
   padding:
     8px
     calc(16px + env(safe-area-inset-right, 0px))
     calc(14px + env(safe-area-inset-bottom, 0px))
     calc(16px + env(safe-area-inset-left, 0px));
+}
+
+.action-dock .action-fab,
+.action-dock .action-menu {
+  pointer-events: auto;
 }
 
 .action-menu {
@@ -1119,6 +1149,7 @@ button.brand-logo-button {
 }
 
 .page-frame {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
