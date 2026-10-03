@@ -4,8 +4,6 @@ import {
   createPart,
   getPart,
   readError,
-  searchPartCategories,
-  searchStockLocations,
   updatePart,
 } from "../api";
 import { Notice } from "../Notice";
@@ -13,6 +11,8 @@ import { usePageStack } from "../shell/pageStack";
 import { useShell } from "../shell/AppShell";
 import type { CommandFailure, LookupHit, PartDetail, PartWrite } from "../types";
 import { CheckField } from "../ui/CheckField";
+import { CategorySelect } from "../ui/CategorySelect";
+import { LocationSelect } from "../ui/LocationSelect";
 import { TextField } from "../ui/TextField";
 
 type Mode = "create" | "edit";
@@ -210,21 +210,19 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
         value={draft.link}
         onChange={(value) => patch({ link: value })}
       />
-      <RelationField
+      <CategorySelect
+        serverId={serverId}
         label="类别"
         hint="零件所属类别"
-        serverId={serverId}
-        selected={category}
-        search={searchPartCategories}
-        onSelect={setCategory}
+        value={category}
+        onChange={setCategory}
       />
-      <RelationField
+      <LocationSelect
+        serverId={serverId}
         label="默认位置"
         hint="此零件通常存放的位置"
-        serverId={serverId}
-        selected={locationHit}
-        search={searchStockLocations}
-        onSelect={setLocationHit}
+        value={locationHit}
+        onChange={setLocationHit}
       />
       <TextField label="单位" hint="此零件的计量单位" value={draft.units} onChange={(value) => patch({ units: value })} />
       <p className="section-label">属性</p>
@@ -242,100 +240,4 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
       </button>
     </form>
   );
-}
-
-function RelationField({
-  label,
-  hint,
-  serverId,
-  selected,
-  search,
-  onSelect,
-}: {
-  label: string;
-  hint: string;
-  serverId: string;
-  selected: LookupHit | null;
-  search: (id: string, query: string) => Promise<LookupHit[]>;
-  onSelect: (hit: LookupHit | null) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
-  const [hits, setHits] = useState<LookupHit[]>([]);
-  const [error, setError] = useState<CommandFailure | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    let active = true;
-    const timer = window.setTimeout(() => {
-      search(serverId, query)
-        .then((items) => {
-          if (active) {
-            setHits(items);
-            setError(null);
-          }
-        })
-        .catch((reason: unknown) => {
-          if (active) {
-            setHits([]);
-            setError(readError(reason));
-          }
-        });
-    }, 300);
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [open, query, search, serverId]);
-
-  return (
-    <div className="relation-field">
-      <TextField
-        label={label}
-        hint={hint}
-        type="search"
-        placeholder={`搜索${label}`}
-        value={query}
-        onFocus={() => setOpen(true)}
-        onChange={(value) => {
-          setOpen(true);
-          setQuery(value);
-        }}
-      />
-      {selected ? (
-        <p className="relation-picked">
-          <span>已选 {hitLabel(selected)}</span>
-          <button type="button" onClick={() => onSelect(null)}>
-            清除
-          </button>
-        </p>
-      ) : null}
-      <Notice error={error} />
-      {open ? (
-        <ul className="bom-hits">
-          {hits.map((hit) => (
-            <li key={hit.pk}>
-              <button
-                className={selected?.pk === hit.pk ? "bom-hit is-on" : "bom-hit"}
-                type="button"
-                onClick={() => {
-                  onSelect(hit);
-                  setOpen(false);
-                  setQuery("");
-                }}
-              >
-                {hitLabel(hit)}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
-function hitLabel(hit: LookupHit) {
-  return hit.pathstring.trim() || hit.name;
 }

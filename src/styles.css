@@ -199,8 +199,20 @@ button:not(:disabled):active,
   font-weight: 450;
 }
 
-.field-input:focus {
-  outline: 2px solid rgba(47, 120, 246, 0.35);
+select.field-input {
+  appearance: none;
+  padding-right: 40px;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238d93a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px 16px;
+}
+
+.cascade {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .field-hint,
@@ -1065,6 +1077,14 @@ button:not(:disabled):active,
   gap: 12px;
 }
 
+.subpage {
+  padding-top: 14px;
+}
+
+.subpage .detail-heading {
+  padding: 0 14px;
+}
+
 .detail-stack {
   display: flex;
   flex-direction: column;
@@ -1076,11 +1096,6 @@ button:not(:disabled):active,
   color: #8d93a0;
   font-size: 13px;
   font-weight: 650;
-}
-
-.part-pricing,
-.subpage-top {
-  margin-top: 14px;
 }
 
 .shell.shell-app button.part-card.stock-card {
@@ -1160,16 +1175,10 @@ button:not(:disabled):active,
   outline: 2px solid rgba(47, 120, 246, 0.45);
 }
 
-.part-pricing .detail-heading,
-.subpage-top .detail-heading {
-  padding: 0 14px;
-}
-
 .detail-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
-  margin-top: 14px;
   padding: 4px;
   border-radius: 999px;
   background: #e6e8ee;

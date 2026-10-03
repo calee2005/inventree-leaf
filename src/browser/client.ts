@@ -838,6 +838,30 @@ export async function updatePart(id: string, pk: number, input: PartWrite) {
   });
 }
 
+export async function listStockLocations(id: string, offset: number): Promise<{ count: number; results: LookupHit[] }> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/stock/location/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", String(offset)],
+      ["ordering", "pathstring"],
+    ]),
+  );
+  const results = pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const hit: LookupHit = {
+      pk,
+      name: text(item, "name"),
+      pathstring: text(item, "pathstring"),
+    };
+    return [hit];
+  });
+  return { count: pageCount(value, results), results };
+}
+
 export async function searchPartCategories(id: string, search: string): Promise<LookupHit[]> {
   return searchLookup(id, "api/part/category/", search);
 }

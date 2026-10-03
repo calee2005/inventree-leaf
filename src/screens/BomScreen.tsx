@@ -80,7 +80,7 @@ export function BomListScreen({ usedIn }: { usedIn: boolean }) {
   }, [serverId, partPk, usedIn, invalid]);
 
   return (
-    <div className="part-detail subpage-top">
+    <div className="part-detail">
       <Notice error={error} />
       {!usedIn ? (
         <button className="form-primary" type="button" onClick={() => stack.push(`/parts/${partPk}/bom/new`)}>
@@ -236,7 +236,7 @@ export function BomLineScreen() {
   }
 
   return (
-    <div className="part-detail subpage-top">
+    <div className="part-detail">
       <Notice error={error} />
       {loading ? <p className="muted">正在读取物料行…</p> : null}
       {line && editing ? (
@@ -333,7 +333,7 @@ export function BomCreateScreen() {
   const [error, setError] = useState<CommandFailure | null>(null);
 
   return (
-    <div className="part-detail subpage-top">
+    <div className="part-detail">
       <Notice error={error} />
       <BomEditor
         serverId={serverId}

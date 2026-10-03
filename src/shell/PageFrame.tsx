@@ -1,5 +1,6 @@
 import { type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { Notice } from "../Notice";
+import { Subpage } from "../ui/Subpage";
 import { usePageStack } from "./pageStack";
 import { useShell, type ShellPanel } from "./AppShell";
 
@@ -57,7 +58,7 @@ export function PageFrame({ back = false, title, children }: Props) {
       </header>
       <div className="app-body">
         <Notice error={shell.error} />
-        {children}
+        {back ? <Subpage>{children}</Subpage> : children}
       </div>
       {!back && shell.actions.length > 0 ? (
         <div className="action-dock">

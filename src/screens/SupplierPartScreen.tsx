@@ -67,7 +67,7 @@ export function SupplierPartListScreen() {
   }, [serverId, partPk, invalid]);
 
   return (
-    <div className="part-detail subpage-top">
+    <div className="part-detail">
       <Notice error={error} />
       {loading ? <p className="muted">正在读取供应商零件…</p> : null}
       <PullToRefresh
@@ -143,7 +143,7 @@ export function SupplierPartDetailScreen() {
   }, [serverId, supplierPartId]);
 
   return (
-    <div className="part-detail subpage-top">
+    <div className="part-detail">
       <Notice error={error} />
       {loading ? <p className="muted">正在读取供应商零件…</p> : null}
       <PullToRefresh onRefresh={load}>

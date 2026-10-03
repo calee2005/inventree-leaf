@@ -15,6 +15,7 @@ export {
   getSupplierPart,
   listBom,
   listPartCategories,
+  listStockLocations,
   searchPartCategories,
   searchStockLocations,
   listPartStock,

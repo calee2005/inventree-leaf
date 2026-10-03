@@ -58,7 +58,7 @@ export function PartPricingScreen() {
   const rows = pricing && part ? priceRows(part, pricing) : [];
 
   return (
-    <div className="part-detail part-pricing">
+    <div className="part-detail">
       <Notice error={error} />
       {loading ? <p className="muted">正在读取价格…</p> : null}
       <PullToRefresh

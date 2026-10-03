@@ -46,7 +46,7 @@ export function AboutScreen() {
   const fullName = [user?.firstName ?? "", user?.lastName ?? ""].filter((part) => part.trim()).join(" ");
 
   return (
-    <div className="detail-stack subpage-top">
+    <div className="detail-stack">
       <Notice error={error} />
       {loading ? <p className="muted">正在读取服务器信息…</p> : null}
       {info ? (
