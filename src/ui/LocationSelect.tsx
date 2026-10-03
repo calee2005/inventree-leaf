@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
+import { Picker } from "antd-mobile";
+import "antd-mobile/es/components/picker/picker.css";
+import "antd-mobile/es/components/picker-view/picker-view.css";
+import "antd-mobile/es/components/popup/popup.css";
+import "antd-mobile/es/components/mask/mask.css";
+import "antd-mobile/es/components/safe-area/safe-area.css";
 import { listStockLocations, readError } from "../api";
 import { Notice } from "../Notice";
 import type { CommandFailure, LookupHit } from "../types";
-import { SelectField } from "./SelectField";
+import { PickerTrigger } from "./CategorySelect";
 
 type Props = {
   serverId: string;
@@ -37,19 +43,41 @@ export function LocationSelect({ serverId, label, hint, value, onChange }: Props
   }, [serverId]);
 
   return (
-    <div className="cascade">
+    <>
       <Notice error={error} />
-      <SelectField
-        label={label}
-        hint={hint}
-        value={value ? String(value.pk) : ""}
-        options={options.map((item) => ({
-          value: String(item.pk),
-          label: item.pathstring.trim() || item.name,
-        }))}
-        onChange={(raw) => onChange(options.find((item) => String(item.pk) === raw) ?? null)}
-      />
-    </div>
+      <Picker
+        columns={[
+          options.map((item) => ({
+            label: item.pathstring.trim() || item.name,
+            value: String(item.pk),
+          })),
+        ]}
+        value={value ? [String(value.pk)] : []}
+        title={label}
+        confirmText="确定"
+        cancelText="取消"
+        onConfirm={(next) => {
+          const picked = next[0];
+          onChange(options.find((item) => String(item.pk) === picked) ?? null);
+        }}
+      >
+        {(items, actions) => (
+          <PickerTrigger
+            label={label}
+            hint={hint}
+            text={items[0]?.label ? String(items[0].label) : ""}
+            onOpen={actions.open}
+            onClear={
+              value
+                ? () => {
+                    onChange(null);
+                  }
+                : undefined
+            }
+          />
+        )}
+      </Picker>
+    </>
   );
 }
 

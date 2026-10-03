@@ -1,8 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Cascader } from "antd-mobile";
+import type { CascaderOption } from "antd-mobile/es/components/cascader-view";
+import "antd-mobile/es/components/cascader/cascader.css";
+import "antd-mobile/es/components/cascader-view/cascader-view.css";
+import "antd-mobile/es/components/popup/popup.css";
+import "antd-mobile/es/components/mask/mask.css";
+import "antd-mobile/es/components/tabs/tabs.css";
+import "antd-mobile/es/components/check-list/check-list.css";
+import "antd-mobile/es/components/list/list.css";
+import "antd-mobile/es/components/skeleton/skeleton.css";
 import { getPartCategory, listPartCategories, readError } from "../api";
 import { Notice } from "../Notice";
 import type { CommandFailure, LookupHit } from "../types";
-import { SelectField } from "./SelectField";
 
 type Props = {
   serverId: string;
@@ -12,80 +21,140 @@ type Props = {
   onChange: (value: LookupHit | null) => void;
 };
 
+const rootKey = "";
+
 export function CategorySelect({ serverId, label, hint, value, onChange }: Props) {
-  const [levels, setLevels] = useState<LookupHit[][]>([]);
-  const [path, setPath] = useState<LookupHit[]>([]);
+  const cache = useRef<Record<string, LookupHit[] | null>>({});
+  const pending = useRef(new Set<string>());
+  const [loaded, setLoaded] = useState<Record<string, LookupHit[] | null>>({});
+  const [chosen, setChosen] = useState<string[]>([]);
   const [error, setError] = useState<CommandFailure | null>(null);
+
+  const options = useMemo(() => buildOptions(loaded, rootKey), [loaded]);
 
   useEffect(() => {
     let active = true;
     const selected = value?.pk ?? null;
-    loadCascade(serverId, selected)
-      .then((next) => {
-        if (!active) {
-          return;
-        }
-        setLevels(next.levels);
-        setPath(next.path);
-        setError(null);
-      })
-      .catch((reason: unknown) => {
-        if (active) {
-          setError(readError(reason));
-        }
-      });
+    (async () => {
+      await fetchLevel(serverId, rootKey, cache, pending, setLoaded, setError);
+      if (!selected) {
+        return;
+      }
+      const chain = await categoryChain(serverId, selected);
+      for (const node of chain) {
+        await fetchLevel(serverId, String(node.pk), cache, pending, setLoaded, setError);
+      }
+      if (active) {
+        setChosen(chain.map((node) => String(node.pk)));
+      }
+    })().catch((reason: unknown) => {
+      if (active) {
+        setError(readError(reason));
+      }
+    });
     return () => {
       active = false;
     };
   }, [serverId]);
 
-  async function pick(level: number, raw: string) {
-    const chosen = levels[level]?.find((item) => String(item.pk) === raw) ?? null;
-    const nextPath = chosen ? [...path.slice(0, level), chosen] : path.slice(0, level);
-    setPath(nextPath);
-    onChange(nextPath[nextPath.length - 1] ?? null);
-    if (!chosen) {
-      setLevels((current) => current.slice(0, level + 1));
-      return;
-    }
-    try {
-      const children = await loadCategoryLevel(serverId, chosen.pk);
-      setLevels((current) => [...current.slice(0, level + 1), ...(children.length > 0 ? [children] : [])]);
-      setError(null);
-    } catch (reason: unknown) {
-      setError(readError(reason));
-    }
-  }
-
   return (
-    <div className="cascade">
+    <>
       <Notice error={error} />
-      {levels.map((options, index) => (
-        <SelectField
-          key={path[index - 1]?.pk ?? "root"}
-          label={index === 0 ? label : "子类别"}
-          hint={index === 0 ? hint : undefined}
-          value={path[index] ? String(path[index].pk) : ""}
-          options={options.map((item) => ({ value: String(item.pk), label: item.name }))}
-          onChange={(raw) => void pick(index, raw)}
-        />
-      ))}
-    </div>
+      <Cascader
+        options={options}
+        value={chosen}
+        title={label}
+        confirmText="确定"
+        cancelText="取消"
+        placeholder="请选择"
+        onSelect={(next) => {
+          const last = next[next.length - 1];
+          if (last !== undefined && last !== null) {
+            void fetchLevel(serverId, String(last), cache, pending, setLoaded, setError);
+          }
+        }}
+        onConfirm={(next) => {
+          const ids = next.map(String);
+          setChosen(ids);
+          onChange(findHit(loaded, ids));
+        }}
+      >
+        {(items, actions) => (
+          <PickerTrigger
+            label={label}
+            hint={hint}
+            text={items.flatMap((item) => (item?.label ? [String(item.label)] : [])).join(" / ")}
+            onOpen={actions.open}
+            onClear={
+              chosen.length > 0
+                ? () => {
+                    setChosen([]);
+                    onChange(null);
+                  }
+                : undefined
+            }
+          />
+        )}
+      </Cascader>
+    </>
   );
 }
 
-async function loadCascade(serverId: string, selected: number | null) {
-  const roots = await loadCategoryLevel(serverId, null);
-  const chain = selected ? await categoryChain(serverId, selected) : [];
-  const levels = [roots];
-  for (const node of chain) {
-    const children = await loadCategoryLevel(serverId, node.pk);
-    if (children.length === 0) {
-      break;
-    }
-    levels.push(children);
+function buildOptions(loaded: Record<string, LookupHit[] | null>, key: string): CascaderOption[] {
+  const level = loaded[key];
+  if (level === null) {
+    return [];
   }
-  return { levels, path: chain };
+  if (level === undefined) {
+    return Cascader.optionSkeleton;
+  }
+  return level.map((item) => {
+    const childKey = String(item.pk);
+    const children = loaded[childKey];
+    return {
+      value: childKey,
+      label: item.name,
+      children: children === null ? undefined : children === undefined ? Cascader.optionSkeleton : buildOptions(loaded, childKey),
+    };
+  });
+}
+
+async function fetchLevel(
+  serverId: string,
+  key: string,
+  cache: { current: Record<string, LookupHit[] | null> },
+  pending: { current: Set<string> },
+  setLoaded: (value: Record<string, LookupHit[] | null>) => void,
+  setError: (value: CommandFailure | null) => void,
+) {
+  if (key in cache.current || pending.current.has(key)) {
+    return;
+  }
+  pending.current.add(key);
+  try {
+    const items = await loadCategoryLevel(serverId, key === rootKey ? null : Number(key));
+    cache.current = { ...cache.current, [key]: items.length > 0 ? items : null };
+    setLoaded(cache.current);
+    setError(null);
+  } catch (reason: unknown) {
+    setError(readError(reason));
+  } finally {
+    pending.current.delete(key);
+  }
+}
+
+function findHit(loaded: Record<string, LookupHit[] | null>, ids: string[]): LookupHit | null {
+  let key = rootKey;
+  let found: LookupHit | null = null;
+  for (const id of ids) {
+    const level = loaded[key];
+    found = Array.isArray(level) ? level.find((item) => String(item.pk) === id) ?? null : null;
+    if (!found) {
+      return null;
+    }
+    key = id;
+  }
+  return found;
 }
 
 async function categoryChain(serverId: string, pk: number): Promise<LookupHit[]> {
@@ -117,4 +186,46 @@ async function loadCategoryLevel(serverId: string, parent: number | null): Promi
       return hits;
     }
   }
+}
+
+export function PickerTrigger({
+  label,
+  hint,
+  text,
+  onOpen,
+  onClear,
+}: {
+  label: string;
+  hint?: string;
+  text: string;
+  onOpen: () => void;
+  onClear?: () => void;
+}) {
+  return (
+    <div className="field">
+      <span>{label}</span>
+      <div className="picker-line">
+        <div
+          className={text ? "field-input picker-trigger" : "field-input picker-trigger is-empty"}
+          role="button"
+          tabIndex={0}
+          onClick={onOpen}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onOpen();
+            }
+          }}
+        >
+          {text || "未选择"}
+        </div>
+        {onClear ? (
+          <button className="picker-clear" type="button" onClick={onClear}>
+            清除
+          </button>
+        ) : null}
+      </div>
+      {hint ? <small className="field-hint">{hint}</small> : null}
+    </div>
+  );
 }
