@@ -947,6 +947,7 @@ function parseBomLine(value: unknown): BomLine | null {
     subPartId: idOf(value, "sub_part") ?? 0,
     subPartName: firstText([nested(value, "sub_part_detail", "full_name"), nested(value, "sub_part_detail", "name")]),
     subPartThumbnail: nested(value, "sub_part_detail", "thumbnail"),
+    subPartUnits: nested(value, "sub_part_detail", "units"),
     substitutes: Array.isArray(substitutes)
       ? substitutes.flatMap((item) => {
           const substitutePk = idOf(item, "pk");

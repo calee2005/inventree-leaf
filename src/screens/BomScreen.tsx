@@ -7,7 +7,6 @@ import {
   deleteBomSubstitute,
   getBomItem,
   listBom,
-  listParts,
   readError,
   updateBomItem,
   validateBomItem,
@@ -16,15 +15,16 @@ import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
 import { useShell } from "../shell/AppShell";
-import type { BomItemWrite, BomLine, CommandFailure, PartSummary } from "../types";
+import type { BomItemWrite, BomLine, CommandFailure } from "../types";
 import { CheckField } from "../ui/CheckField";
 import { DetailGroup } from "../ui/DetailGroup";
 import { DetailHeading } from "../ui/DetailHeading";
 import { DetailRow } from "../ui/DetailRow";
 import { PartCard } from "../ui/PartCard";
+import { PartLookup } from "../ui/LookupSheet";
 import { SectionLabel } from "../ui/SectionLabel";
 import { TextField } from "../ui/TextField";
-import { formatQty } from "../ui/quantity";
+import { formatQty, formatStock } from "../ui/quantity";
 
 export function BomListScreen({ usedIn }: { usedIn: boolean }) {
   const { serverId } = useShell();
@@ -111,7 +111,7 @@ export function BomListScreen({ usedIn }: { usedIn: boolean }) {
                 thumbnail={thumbnail}
                 title={name || "未命名零件"}
                 detail={item.reference || undefined}
-                trailing={formatQty(item.quantity)}
+                trailing={formatStock(item.quantity, item.subPartUnits)}
                 onClick={() => (usedIn ? stack.push(`/parts/${partId}`) : stack.push(`/parts/bom/${item.pk}`))}
               />
             );
@@ -145,8 +145,6 @@ export function BomLineScreen() {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<CommandFailure | null>(null);
   const [loading, setLoading] = useState(true);
-  const [substituteQuery, setSubstituteQuery] = useState("");
-  const [substituteHits, setSubstituteHits] = useState<PartSummary[]>([]);
 
   async function reload() {
     if (invalid) {
@@ -169,20 +167,6 @@ export function BomLineScreen() {
     setLoading(true);
     void reload();
   }, [serverId, bomId]);
-
-  useEffect(() => {
-    const query = substituteQuery.trim();
-    if (!query) {
-      setSubstituteHits([]);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      listParts(serverId, null, query, 0)
-        .then((page) => setSubstituteHits(page.results))
-        .catch(() => setSubstituteHits([]));
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [serverId, substituteQuery]);
 
   async function toggleValid() {
     if (!line) {
@@ -217,8 +201,6 @@ export function BomLineScreen() {
     setError(null);
     try {
       await createBomSubstitute(serverId, line.pk, partPk);
-      setSubstituteQuery("");
-      setSubstituteHits([]);
       await reload();
     } catch (reason: unknown) {
       setError(readError(reason));
@@ -253,7 +235,10 @@ export function BomLineScreen() {
       {line && !editing ? (
         <PullToRefresh onRefresh={reload}>
           <div className="detail-stack">
-            <DetailHeading title={line.subPartName || "组件"} detail={`数量 ${formatQty(line.quantity)}`} />
+            <DetailHeading
+              title={line.subPartName || "组件"}
+              detail={`数量 ${formatStock(line.quantity, line.subPartUnits)}`}
+            />
             <DetailGroup>
               <DetailRow
                 title="组件"
@@ -271,11 +256,11 @@ export function BomLineScreen() {
               <DetailRow title="变体继承" aside={line.inherited ? "是" : "否"} />
               <DetailRow title="可选" aside={line.optional ? "是" : "否"} />
               <DetailRow title="消耗品" aside={line.consumable ? "是" : "否"} />
-              <DetailRow title="准备数量" aside={formatQty(line.setupQuantity)} />
+              <DetailRow title="准备数量" aside={formatStock(line.setupQuantity, line.subPartUnits)} />
               <DetailRow title="损耗" aside={formatQty(line.attrition)} />
               <DetailRow
                 title="取整倍数"
-                aside={line.roundingMultiple === null ? "-" : formatQty(line.roundingMultiple)}
+                aside={line.roundingMultiple === null ? "-" : formatStock(line.roundingMultiple, line.subPartUnits)}
               />
               <DetailRow title="已校验" aside={line.validated ? "是" : "否"} />
             </DetailGroup>
@@ -292,23 +277,13 @@ export function BomLineScreen() {
                 />
               ))}
             </DetailGroup>
-            <TextField
+            <PartLookup
+              serverId={serverId}
               label="添加替代料"
               hint="搜索并添加可替代此组件的零件"
-              type="search"
-              placeholder="搜索零件"
-              value={substituteQuery}
-              onChange={setSubstituteQuery}
+              value={null}
+              onChange={(part) => void addSubstitute(part.pk)}
             />
-            <ul className="bom-hits">
-              {substituteHits.map((part) => (
-                <li key={part.pk}>
-                  <button className="bom-hit" type="button" onClick={() => void addSubstitute(part.pk)}>
-                    {part.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
             <button className="form-primary" type="button" onClick={() => void toggleValid()}>
               {line.validated ? "取消校验" : "标记已校验"}
             </button>
@@ -364,8 +339,6 @@ function BomEditor({
   const [chosen, setChosen] = useState<{ pk: number; name: string } | null>(
     initial ? { pk: initial.subPartId, name: initial.subPartName } : null,
   );
-  const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<PartSummary[]>([]);
   const [quantity, setQuantity] = useState(initial ? String(initial.quantity) : "1");
   const [reference, setReference] = useState(initial?.reference ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
@@ -382,20 +355,6 @@ function BomEditor({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<CommandFailure | null>(null);
-
-  useEffect(() => {
-    const text = query.trim();
-    if (!text) {
-      setHits([]);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      listParts(serverId, null, text, 0)
-        .then((page) => setHits(page.results))
-        .catch(() => setHits([]));
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [serverId, query]);
 
   async function save() {
     const part = initial?.partId ?? assemblyId ?? 0;
@@ -451,28 +410,13 @@ function BomEditor({
       }}
     >
       <Notice error={error} />
-      <TextField
+      <PartLookup
+        serverId={serverId}
         label="组件"
         hint="此物料行使用的零件"
-        type="search"
-        placeholder="搜索零件"
-        value={query}
-        onChange={setQuery}
+        value={chosen}
+        onChange={(part) => setChosen({ pk: part.pk, name: part.name })}
       />
-      {chosen ? <p className="muted">已选 {chosen.name}</p> : null}
-      <ul className="bom-hits">
-        {hits.map((part) => (
-          <li key={part.pk}>
-            <button
-              className={chosen?.pk === part.pk ? "bom-hit is-on" : "bom-hit"}
-              type="button"
-              onClick={() => setChosen({ pk: part.pk, name: part.name })}
-            >
-              {part.name}
-            </button>
-          </li>
-        ))}
-      </ul>
       <TextField label="数量" hint="此物料行需要的数量" inputMode="decimal" value={quantity} onChange={setQuantity} />
       <TextField label="参考" hint="物料行的参考位号" value={reference} onChange={setReference} />
       <TextField label="备注" hint="物料行备注" value={note} onChange={setNote} />

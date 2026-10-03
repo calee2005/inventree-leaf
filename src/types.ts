@@ -143,6 +143,7 @@ export type BomLine = {
   subPartId: number;
   subPartName: string;
   subPartThumbnail: string;
+  subPartUnits: string;
   substitutes: BomSubstitute[];
 };
 
