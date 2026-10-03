@@ -1,4 +1,13 @@
 import type {
+  CompanyDetail,
+  CompanyPage,
+  CompanySummary,
+  ManufacturerPartDetail,
+  ManufacturerPartSummary,
+  PurchaseOrderDetail,
+  PurchaseOrderExtraLine,
+  PurchaseOrderLine,
+  PurchaseOrderSummary,
   BomItemWrite,
   BomLine,
   BomPage,
@@ -1330,17 +1339,27 @@ function formatQty(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Math.round(value * 1000) / 1000);
 }
 
-export async function listSupplierParts(id: string, part: number, offset: number): Promise<SupplierPartPage> {
-  const value = await authed(
-    id,
-    withQuery(apiUrl(requireServer(id).server, "api/company/part/"), [
-      ["limit", String(PAGE_LIMIT)],
-      ["offset", String(offset)],
-      ["part", String(part)],
-      ["supplier_detail", "true"],
-      ["part_detail", "true"],
-    ]),
-  );
+export async function listSupplierParts(
+  id: string,
+  offset: number,
+  filter: { part?: number; supplier?: number; search?: string },
+): Promise<SupplierPartPage> {
+  const pairs: Array<[string, string]> = [
+    ["limit", String(PAGE_LIMIT)],
+    ["offset", String(offset)],
+    ["supplier_detail", "true"],
+    ["part_detail", "true"],
+  ];
+  if (filter.part) {
+    pairs.push(["part", String(filter.part)]);
+  }
+  if (filter.supplier) {
+    pairs.push(["supplier", String(filter.supplier)]);
+  }
+  if (filter.search?.trim()) {
+    pairs.push(["search", filter.search.trim()]);
+  }
+  const value = await authed(id, withQuery(apiUrl(requireServer(id).server, "api/company/part/"), pairs));
   const results = pageItems(value).flatMap((item) => {
     const pk = idOf(item, "pk");
     if (!pk) {
@@ -1352,6 +1371,7 @@ export async function listSupplierParts(id: string, part: number, offset: number
       supplierName: nested(item, "supplier_detail", "name"),
       partName: firstText([nested(item, "part_detail", "full_name"), nested(item, "part_detail", "name")]),
       supplierImage: nested(item, "supplier_detail", "thumbnail") || nested(item, "supplier_detail", "image"),
+      partThumbnail: nested(item, "part_detail", "thumbnail"),
       inStock: num(item, "in_stock"),
     };
     return [summary];
@@ -1366,6 +1386,7 @@ export async function getSupplierPart(id: string, pk: number): Promise<SupplierP
       ["supplier_detail", "true"],
       ["part_detail", "true"],
       ["manufacturer_detail", "true"],
+      ["manufacturer_part_detail", "true"],
     ]),
   );
   const found = idOf(value, "pk");
@@ -1380,14 +1401,331 @@ export async function getSupplierPart(id: string, pk: number): Promise<SupplierP
     inStock: num(value, "in_stock"),
     partId: idOf(value, "part") ?? 0,
     partName: firstText([nested(value, "part_detail", "full_name"), nested(value, "part_detail", "name")]),
+    supplierId: idOf(value, "supplier") ?? 0,
     supplierName: nested(value, "supplier_detail", "name"),
+    manufacturerId: idOf(asObject(value)?.manufacturer_detail, "pk") ?? 0,
     manufacturerName: nested(value, "manufacturer_detail", "name"),
-    mpn: text(value, "MPN"),
+    manufacturerPartId: idOf(value, "manufacturer_part"),
+    mpn: nested(value, "manufacturer_part_detail", "MPN") || text(value, "MPN"),
     packaging: text(value, "packaging"),
     packQuantity: text(value, "pack_quantity"),
     link: text(value, "link"),
     note: text(value, "note").trim() || text(value, "notes"),
   };
+}
+
+function companySummary(value: unknown): CompanySummary | null {
+  const pk = idOf(value, "pk");
+  if (!pk) {
+    return null;
+  }
+  return {
+    pk,
+    name: text(value, "name"),
+    description: text(value, "description"),
+    thumbnail: text(value, "thumbnail") || text(value, "image"),
+    active: bool(value, "active", true),
+  };
+}
+
+function addressLine(value: unknown): string {
+  const address = asObject(value)?.primary_address;
+  if (!address) {
+    return "";
+  }
+  return [
+    text(address, "line1"),
+    text(address, "line2"),
+    text(address, "postal_city"),
+    text(address, "province"),
+    text(address, "postal_code"),
+    text(address, "country"),
+  ]
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+export async function listCompanies(
+  id: string,
+  offset: number,
+  filter: { supplier?: boolean; search?: string },
+): Promise<CompanyPage> {
+  const pairs: Array<[string, string]> = [
+    ["limit", String(PAGE_LIMIT)],
+    ["offset", String(offset)],
+    ["ordering", "name"],
+  ];
+  if (filter.supplier) {
+    pairs.push(["is_supplier", "true"]);
+  }
+  if (filter.search?.trim()) {
+    pairs.push(["search", filter.search.trim()]);
+  }
+  const value = await authed(id, withQuery(apiUrl(requireServer(id).server, "api/company/"), pairs));
+  const results = pageItems(value).flatMap((item) => {
+    const summary = companySummary(item);
+    return summary ? [summary] : [];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function getCompany(id: string, pk: number): Promise<CompanyDetail> {
+  const value = await authed(id, apiUrl(requireServer(id).server, `api/company/${pk}/`));
+  const summary = companySummary(value);
+  if (!summary) {
+    throw fail("missingData", "公司里没有 pk");
+  }
+  return {
+    ...summary,
+    website: text(value, "website"),
+    phone: text(value, "phone"),
+    email: text(value, "email"),
+    link: text(value, "link"),
+    currency: text(value, "currency"),
+    contact: text(value, "contact"),
+    notes: text(value, "notes").trim(),
+    taxId: text(value, "tax_id"),
+    address: addressLine(value),
+    isSupplier: bool(value, "is_supplier", false),
+    isManufacturer: bool(value, "is_manufacturer", false),
+    isCustomer: bool(value, "is_customer", false),
+    partsSupplied: num(value, "parts_supplied"),
+    partsManufactured: num(value, "parts_manufactured"),
+  };
+}
+
+export async function listManufacturerParts(
+  id: string,
+  manufacturer: number,
+  search: string,
+  offset: number,
+): Promise<{ count: number; results: ManufacturerPartSummary[] }> {
+  const pairs: Array<[string, string]> = [
+    ["limit", String(PAGE_LIMIT)],
+    ["offset", String(offset)],
+    ["manufacturer", String(manufacturer)],
+    ["part_detail", "true"],
+  ];
+  if (search.trim()) {
+    pairs.push(["search", search.trim()]);
+  }
+  const value = await authed(id, withQuery(apiUrl(requireServer(id).server, "api/company/part/manufacturer/"), pairs));
+  const results = pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const summary: ManufacturerPartSummary = {
+      pk,
+      mpn: text(item, "MPN"),
+      partName: firstText([nested(item, "part_detail", "full_name"), nested(item, "part_detail", "name")]),
+      thumbnail: nested(item, "part_detail", "thumbnail"),
+    };
+    return [summary];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function getManufacturerPart(id: string, pk: number): Promise<ManufacturerPartDetail> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, `api/company/part/manufacturer/${pk}/`), [
+      ["manufacturer_detail", "true"],
+      ["part_detail", "true"],
+    ]),
+  );
+  const found = idOf(value, "pk");
+  if (!found) {
+    throw fail("missingData", "制造商零件里没有 pk");
+  }
+  return {
+    pk: found,
+    mpn: text(value, "MPN"),
+    description: text(value, "description"),
+    manufacturerId: idOf(value, "manufacturer") ?? 0,
+    manufacturerName: nested(value, "manufacturer_detail", "name"),
+    partId: idOf(value, "part") ?? 0,
+    partName: firstText([nested(value, "part_detail", "full_name"), nested(value, "part_detail", "name")]),
+    link: text(value, "link"),
+    notes: text(value, "notes").trim(),
+  };
+}
+
+export async function listSupplierPartStock(id: string, supplierPart: number, offset: number): Promise<PartStockPage> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/stock/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", String(offset)],
+      ["supplier_part", String(supplierPart)],
+      ["in_stock", "true"],
+      ["part_detail", "true"],
+      ["location_detail", "true"],
+    ]),
+  );
+  const results = pageItems(value).flatMap((item) => {
+    const itemPk = idOf(item, "pk");
+    if (!itemPk) {
+      return [];
+    }
+    const location = nested(item, "location_detail", "pathstring").trim() || nested(item, "location_detail", "name");
+    const quantity = num(item, "quantity");
+    const units = nested(item, "part_detail", "units");
+    return [
+      {
+        pk: itemPk,
+        partName: firstText([nested(item, "part_detail", "full_name"), nested(item, "part_detail", "name")]),
+        location,
+        quantity: units.trim() ? `${formatQty(quantity)} ${units.trim()}` : formatQty(quantity),
+        thumbnail: nested(item, "part_detail", "thumbnail"),
+      },
+    ];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function countOutstandingPurchaseOrders(id: string, supplier: number): Promise<number> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/order/po/"), [
+      ["limit", "1"],
+      ["offset", "0"],
+      ["supplier", String(supplier)],
+      ["outstanding", "true"],
+    ]),
+  );
+  return pageCount(value, pageItems(value));
+}
+
+export async function listPurchaseOrders(
+  id: string,
+  supplier: number,
+  search: string,
+  offset: number,
+): Promise<{ count: number; results: PurchaseOrderSummary[] }> {
+  const pairs: Array<[string, string]> = [
+    ["limit", String(PAGE_LIMIT)],
+    ["offset", String(offset)],
+    ["supplier", String(supplier)],
+    ["supplier_detail", "true"],
+    ["ordering", "-creation_date"],
+  ];
+  if (search.trim()) {
+    pairs.push(["search", search.trim()]);
+  }
+  const value = await authed(id, withQuery(apiUrl(requireServer(id).server, "api/order/po/"), pairs));
+  const results = pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const summary: PurchaseOrderSummary = {
+      pk,
+      reference: text(item, "reference"),
+      description: text(item, "description"),
+      statusText: text(item, "status_text"),
+      supplierName: text(item, "supplier_name") || nested(item, "supplier_detail", "name"),
+      thumbnail: nested(item, "supplier_detail", "thumbnail") || nested(item, "supplier_detail", "image"),
+    };
+    return [summary];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function getPurchaseOrder(id: string, pk: number): Promise<PurchaseOrderDetail> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, `api/order/po/${pk}/`), [["supplier_detail", "true"]]),
+  );
+  const found = idOf(value, "pk");
+  if (!found) {
+    throw fail("missingData", "采购订单里没有 pk");
+  }
+  return {
+    pk: found,
+    reference: text(value, "reference"),
+    description: text(value, "description"),
+    statusText: text(value, "status_text"),
+    supplierId: idOf(value, "supplier"),
+    supplierName: text(value, "supplier_name") || nested(value, "supplier_detail", "name"),
+    supplierReference: text(value, "supplier_reference"),
+    totalPrice: trimDecimal(text(value, "total_price")),
+    currency: text(value, "order_currency") || nested(value, "supplier_detail", "currency"),
+    issueDate: text(value, "issue_date"),
+    startDate: text(value, "start_date"),
+    targetDate: text(value, "target_date"),
+    completeDate: text(value, "complete_date"),
+    lineCount: num(value, "line_items"),
+    completedLines: num(value, "completed_lines"),
+    notes: text(value, "notes").trim(),
+    link: text(value, "link"),
+  };
+}
+
+export async function listPurchaseOrderLines(
+  id: string,
+  order: number,
+  offset: number,
+): Promise<{ count: number; results: PurchaseOrderLine[] }> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/order/po-line/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", String(offset)],
+      ["order", String(order)],
+      ["part_detail", "true"],
+    ]),
+  );
+  const results = pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const currency = text(item, "purchase_price_currency");
+    const price = trimDecimal(text(item, "purchase_price"));
+    const line: PurchaseOrderLine = {
+      pk,
+      sku: text(item, "sku") || nested(item, "supplier_part_detail", "SKU"),
+      partName: text(item, "internal_part_name"),
+      supplierPartId: idOf(item, "part"),
+      quantity: num(item, "quantity"),
+      received: num(item, "received"),
+      price: price ? (currency ? `${price} ${currency}` : price) : "",
+      targetDate: text(item, "target_date"),
+    };
+    return [line];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function listPurchaseOrderExtraLines(
+  id: string,
+  order: number,
+): Promise<PurchaseOrderExtraLine[]> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/order/po-extra-line/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", "0"],
+      ["order", String(order)],
+    ]),
+  );
+  return pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const currency = text(item, "price_currency");
+    const price = trimDecimal(text(item, "price"));
+    return [
+      {
+        pk,
+        description: text(item, "description"),
+        price: price ? (currency ? `${price} ${currency}` : price) : "",
+      },
+    ];
+  });
 }
 
 export async function listRecords(id: string, kind: string, search: string, offset: number): Promise<RecordPage> {

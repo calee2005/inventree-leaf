@@ -387,13 +387,21 @@ button:not(:disabled):active,
 }
 
 .shell.shell-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   background: #f4f5f7;
 }
 
 .server-list {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .brand {
@@ -729,6 +737,25 @@ button.brand-logo-button {
   flex-direction: column;
   gap: 12px;
   padding-top: 14px;
+}
+
+.app-body:has(.adm-pull-to-refresh) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page-content:has(.adm-pull-to-refresh) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.adm-pull-to-refresh {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior-y: contain;
 }
 
 .page-content .detail-heading {

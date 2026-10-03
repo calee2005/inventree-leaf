@@ -173,6 +173,7 @@ export type SupplierPartSummary = {
   supplierName: string;
   partName: string;
   supplierImage: string;
+  partThumbnail: string;
   inStock: number;
 };
 
@@ -189,13 +190,111 @@ export type SupplierPartDetail = {
   inStock: number;
   partId: number;
   partName: string;
+  supplierId: number;
   supplierName: string;
+  manufacturerId: number;
   manufacturerName: string;
+  manufacturerPartId: number | null;
   mpn: string;
   packaging: string;
   packQuantity: string;
   link: string;
   note: string;
+};
+
+export type CompanySummary = {
+  pk: number;
+  name: string;
+  description: string;
+  thumbnail: string;
+  active: boolean;
+};
+
+export type CompanyDetail = CompanySummary & {
+  website: string;
+  phone: string;
+  email: string;
+  link: string;
+  currency: string;
+  contact: string;
+  notes: string;
+  taxId: string;
+  address: string;
+  isSupplier: boolean;
+  isManufacturer: boolean;
+  isCustomer: boolean;
+  partsSupplied: number;
+  partsManufactured: number;
+};
+
+export type CompanyPage = {
+  count: number;
+  results: CompanySummary[];
+};
+
+export type ManufacturerPartSummary = {
+  pk: number;
+  mpn: string;
+  partName: string;
+  thumbnail: string;
+};
+
+export type ManufacturerPartDetail = {
+  pk: number;
+  mpn: string;
+  description: string;
+  manufacturerId: number;
+  manufacturerName: string;
+  partId: number;
+  partName: string;
+  link: string;
+  notes: string;
+};
+
+export type PurchaseOrderSummary = {
+  pk: number;
+  reference: string;
+  description: string;
+  statusText: string;
+  supplierName: string;
+  thumbnail: string;
+};
+
+export type PurchaseOrderDetail = {
+  pk: number;
+  reference: string;
+  description: string;
+  statusText: string;
+  supplierId: number | null;
+  supplierName: string;
+  supplierReference: string;
+  totalPrice: string;
+  currency: string;
+  issueDate: string;
+  startDate: string;
+  targetDate: string;
+  completeDate: string;
+  lineCount: number;
+  completedLines: number;
+  notes: string;
+  link: string;
+};
+
+export type PurchaseOrderLine = {
+  pk: number;
+  sku: string;
+  partName: string;
+  supplierPartId: number | null;
+  quantity: number;
+  received: number;
+  price: string;
+  targetDate: string;
+};
+
+export type PurchaseOrderExtraLine = {
+  pk: number;
+  description: string;
+  price: string;
 };
 
 export type PartPriceDetail = {

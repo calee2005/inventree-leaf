@@ -6,7 +6,16 @@ import { CategoryScreen } from "../screens/CategoryScreen";
 import { PartDetailScreen } from "../screens/PartDetailScreen";
 import { PartFormScreen } from "../screens/PartFormScreen";
 import { PartPricingScreen } from "../screens/PartPricingScreen";
-import { SupplierPartDetailScreen, SupplierPartListScreen } from "../screens/SupplierPartScreen";
+import { PurchaseOrderDetailScreen } from "../screens/PurchaseOrderScreen";
+import { SupplierPartDetailScreen, SupplierPartListScreen, SupplierPartStockScreen } from "../screens/SupplierPartScreen";
+import {
+  CompanyDetailScreen,
+  CompanyOrderListScreen,
+  CompanyPartListScreen,
+  ManufacturerPartListScreen,
+  ManufacturerPartScreen,
+  SupplierListScreen,
+} from "../screens/SupplierScreen";
 import { AboutScreen } from "../screens/AboutScreen";
 import { PartsScreen } from "../screens/PartsScreen";
 import { RecordListScreen } from "../screens/RecordListScreen";
@@ -28,7 +37,6 @@ const signedInViews: ShellView[] = [
 ];
 
 const recordViews: Record<string, { kind: string; emptyText: string }> = {
-  supplier: { kind: "supplier", emptyText: "这里还没有供应商。" },
   customer: { kind: "customer", emptyText: "这里还没有客户。" },
   build: { kind: "build", emptyText: "这里还没有生产订单。" },
   transfer: { kind: "transfer", emptyText: "这里还没有调拨单。" },
@@ -193,6 +201,70 @@ const signedInChildren = [
     element: (
       <PageFrame>
         <StockLocationScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/supplier",
+    element: (
+      <PageFrame>
+        <SupplierListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/supplier/part/:supplierPartId/stock",
+    element: (
+      <PageFrame back title="可用库存">
+        <SupplierPartStockScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/supplier/manufacturer-part/:manufacturerPartId",
+    element: (
+      <PageFrame back title="制造商零件">
+        <ManufacturerPartScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/supplier/:companyId/parts",
+    element: (
+      <PageFrame back title="供应商零件">
+        <CompanyPartListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/supplier/:companyId/manufacturer-parts",
+    element: (
+      <PageFrame back title="制造商零件">
+        <ManufacturerPartListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/supplier/:companyId/orders",
+    element: (
+      <PageFrame back title="采购订单">
+        <CompanyOrderListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/supplier/:companyId",
+    element: (
+      <PageFrame back title="公司">
+        <CompanyDetailScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/purchase/:orderId",
+    element: (
+      <PageFrame back title="采购订单">
+        <PurchaseOrderDetailScreen />
       </PageFrame>
     ),
   },

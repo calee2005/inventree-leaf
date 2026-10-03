@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { getSupplierPart, listSupplierParts, readError } from "../api";
+import { getSupplierPart, listSupplierPartStock, listSupplierParts, readError } from "../api";
 import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
 import { useShell } from "../shell/AppShell";
-import type { CommandFailure, SupplierPartDetail, SupplierPartSummary } from "../types";
+import type { CommandFailure, PartStockItem, SupplierPartDetail, SupplierPartSummary } from "../types";
 import { DetailGroup } from "../ui/DetailGroup";
 import { DetailHeading } from "../ui/DetailHeading";
 import { DetailRow } from "../ui/DetailRow";
@@ -26,7 +26,7 @@ export function SupplierPartListScreen() {
   const offsetRef = useRef(0);
 
   async function loadPage(offset: number, replace: boolean) {
-    const page = await listSupplierParts(serverId, partPk, offset);
+    const page = await listSupplierParts(serverId, offset, { part: partPk });
     setItems((current) => (replace ? page.results : [...current, ...page.results]));
     offsetRef.current = offset + page.results.length;
     setHasMore(offsetRef.current < page.count);
@@ -40,7 +40,7 @@ export function SupplierPartListScreen() {
     }
     let active = true;
     setLoading(true);
-    listSupplierParts(serverId, partPk, 0)
+    listSupplierParts(serverId, 0, { part: partPk })
       .then((page) => {
         if (!active) {
           return;
@@ -158,11 +158,37 @@ export function SupplierPartDetailScreen() {
                 onClick={item.partId > 0 ? () => stack.push(`/parts/${item.partId}`) : undefined}
               />
               <DetailRow title="主供应商" aside={item.primary ? "是" : "否"} />
-              <DetailRow title="可用库存" aside={formatQty(item.inStock)} />
-              {item.supplierName ? <DetailRow title="供应商" detail={item.supplierName} /> : null}
+              <DetailRow
+                title="可用库存"
+                aside={formatQty(item.inStock)}
+                onClick={() => stack.push(`/supplier/part/${item.pk}/stock`)}
+              />
+              {item.supplierName ? (
+                <DetailRow
+                  title="供应商"
+                  detail={item.supplierName}
+                  onClick={item.supplierId > 0 ? () => stack.push(`/supplier/${item.supplierId}`) : undefined}
+                />
+              ) : null}
               <DetailRow title="供应商零件编号" detail={item.sku || "未编号"} />
-              {item.manufacturerName ? <DetailRow title="制造商" detail={item.manufacturerName} /> : null}
-              {item.mpn ? <DetailRow title="制造商零件" detail={item.mpn} /> : null}
+              {item.manufacturerName ? (
+                <DetailRow
+                  title="制造商"
+                  detail={item.manufacturerName}
+                  onClick={item.manufacturerId > 0 ? () => stack.push(`/supplier/${item.manufacturerId}`) : undefined}
+                />
+              ) : null}
+              {item.mpn ? (
+                <DetailRow
+                  title="制造商零件"
+                  detail={item.mpn}
+                  onClick={
+                    item.manufacturerPartId
+                      ? () => stack.push(`/supplier/manufacturer-part/${item.manufacturerPartId}`)
+                      : undefined
+                  }
+                />
+              ) : null}
               {item.packaging || item.packQuantity ? (
                 <DetailRow title="包装" detail={item.packaging || undefined} aside={item.packQuantity || undefined} />
               ) : null}
@@ -170,6 +196,103 @@ export function SupplierPartDetailScreen() {
               {item.note ? <DetailRow title="注释" detail={item.note} note /> : null}
             </DetailGroup>
           </div>
+        ) : null}
+      </PullToRefresh>
+    </div>
+  );
+}
+
+export function SupplierPartStockScreen() {
+  const { serverId } = useShell();
+  const stack = usePageStack();
+  const params = useParams();
+  const supplierPartId = Number(params.supplierPartId);
+  const invalid = !Number.isInteger(supplierPartId) || supplierPartId <= 0;
+  const [items, setItems] = useState<PartStockItem[]>([]);
+  const [error, setError] = useState<CommandFailure | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const offsetRef = useRef(0);
+
+  async function loadPage(offset: number, replace: boolean) {
+    const page = await listSupplierPartStock(serverId, supplierPartId, offset);
+    setItems((current) => (replace ? page.results : [...current, ...page.results]));
+    offsetRef.current = offset + page.results.length;
+    setHasMore(offsetRef.current < page.count);
+  }
+
+  useEffect(() => {
+    if (invalid) {
+      setLoading(false);
+      setError({ kind: "invalid", message: "供应商零件不存在" });
+      return;
+    }
+    let active = true;
+    setLoading(true);
+    listSupplierPartStock(serverId, supplierPartId, 0)
+      .then((page) => {
+        if (!active) {
+          return;
+        }
+        setItems(page.results);
+        offsetRef.current = page.results.length;
+        setHasMore(page.results.length < page.count);
+        setError(null);
+      })
+      .catch((reason: unknown) => {
+        if (active) {
+          setError(readError(reason));
+          setHasMore(false);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [serverId, supplierPartId, invalid]);
+
+  return (
+    <div className="part-detail">
+      <Notice error={error} />
+      {loading ? <p className="muted">正在读取库存…</p> : null}
+      <PullToRefresh
+        onRefresh={async () => {
+          if (!invalid) {
+            await loadPage(0, true);
+          }
+        }}
+      >
+        {!loading && items.length === 0 && !error ? <p className="muted">这里还没有库存。</p> : null}
+        <ul className="part-list">
+          {items.map((item) => (
+            <PartCard
+              key={item.pk}
+              square
+              serverId={serverId}
+              thumbnail={item.thumbnail}
+              title={item.partName || "未命名零件"}
+              detail={item.location || "未设置位置"}
+              trailing={item.quantity || undefined}
+              onClick={() => stack.push(`/stock/item/${item.pk}`)}
+            />
+          ))}
+        </ul>
+        {items.length > 0 || hasMore ? (
+          <InfiniteScroll
+            loadMore={async () => {
+              try {
+                await loadPage(offsetRef.current, false);
+              } catch (reason: unknown) {
+                setError(readError(reason));
+                throw reason;
+              }
+            }}
+            hasMore={hasMore}
+          />
         ) : null}
       </PullToRefresh>
     </div>
