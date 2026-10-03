@@ -198,7 +198,9 @@ export type SupplierPartSummary = {
   pk: number;
   sku: string;
   supplierName: string;
+  partId: number;
   partName: string;
+  partUnits: string;
   supplierImage: string;
   partThumbnail: string;
   inStock: number;
@@ -540,6 +542,9 @@ export type StockItemWrite = {
   batch: string;
   packaging: string;
   link: string;
+  supplierPart: number | null;
+  purchasePrice: string;
+  purchasePriceCurrency: string;
 };
 
 export type StockItemDetail = {
@@ -561,6 +566,8 @@ export type StockItemDetail = {
   link: string;
   supplierPartId: number | null;
   supplierSku: string;
+  purchasePrice: string;
+  purchasePriceCurrency: string;
   updated: string;
   stocktakeDate: string;
 };

@@ -17,7 +17,7 @@ import { useShell } from "../shell/AppShell";
 import type { CommandFailure, LookupHit } from "../types";
 import { CheckField } from "../ui/CheckField";
 import { LocationSelect } from "../ui/LocationSelect";
-import { PartLookup } from "../ui/LookupSheet";
+import { PartLookup, SupplierPartLookup } from "../ui/LookupSheet";
 import { PickerTrigger } from "../ui/CategorySelect";
 import { TextField } from "../ui/TextField";
 
@@ -31,6 +31,13 @@ function quantityHint(part: { units: string } | null) {
   }
   return `按零件单位「${trimmed}」填写`;
 }
+
+const currencies = ["CNY", "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "NZD"].map((code) => ({
+  value: code,
+  label: code,
+}));
+
+const pricePattern = /^-?\d{0,13}(?:\.\d{1,6})?$/;
 
 const statuses = [
   { value: "10", label: "正常" },
@@ -222,6 +229,14 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
   const [batch, setBatch] = useState("");
   const [packaging, setPackaging] = useState("");
   const [link, setLink] = useState("");
+  const [supplierPart, setSupplierPart] = useState<{
+    pk: number;
+    sku: string;
+    supplierName: string;
+    partId: number;
+  } | null>(null);
+  const [purchasePrice, setPurchasePrice] = useState("");
+  const [currency, setCurrency] = useState("CNY");
   const [error, setError] = useState<CommandFailure | null>(null);
   const [loading, setLoading] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
@@ -249,6 +264,13 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
         setBatch(item.batch);
         setPackaging(item.packaging);
         setLink(item.link);
+        setSupplierPart(
+          item.supplierPartId
+            ? { pk: item.supplierPartId, sku: item.supplierSku, supplierName: "", partId: item.partId }
+            : null,
+        );
+        setPurchasePrice(item.purchasePrice);
+        setCurrency(item.purchasePriceCurrency || "CNY");
       })
       .catch((reason: unknown) => {
         if (active) {
@@ -312,6 +334,11 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
       setError({ kind: "invalid", message: "数量需要大于 0" });
       return;
     }
+    const price = purchasePrice.trim();
+    if (price && !pricePattern.test(price)) {
+      setError({ kind: "invalid", message: "采购价格需要是数字，最多 6 位小数" });
+      return;
+    }
     setSaving(true);
     setError(null);
     const input = {
@@ -324,6 +351,9 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
       batch,
       packaging,
       link,
+      supplierPart: supplierPart?.pk ?? null,
+      purchasePrice,
+      purchasePriceCurrency: currency,
     };
     try {
       if (mode === "create") {
@@ -372,9 +402,30 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
           label="零件"
           hint="此库存对应的零件"
           value={part}
-          onChange={(next) => setPart({ pk: next.pk, name: next.name, units: next.units })}
+          onChange={(next) => {
+            setPart({ pk: next.pk, name: next.name, units: next.units });
+            setSupplierPart((current) => (current && current.partId !== next.pk ? null : current));
+          }}
         />
       )}
+      <SupplierPartLookup
+        serverId={serverId}
+        partId={part?.pk ?? null}
+        label="供应商零件"
+        hint={part ? "这批库存来自哪个供应商零件，可留空" : "可先选供应商零件，对应的内部零件会一起填上"}
+        value={supplierPart}
+        onChange={(item) => {
+          setSupplierPart({
+            pk: item.pk,
+            sku: item.sku,
+            supplierName: item.supplierName,
+            partId: item.partId,
+          });
+          if (!partPreset && item.partId > 0) {
+            setPart({ pk: item.partId, name: item.partName, units: item.partUnits });
+          }
+        }}
+      />
       <LocationSelect serverId={serverId} label="库存地点" hint="留空表示尚未入库到地点" value={location} onChange={setLocation} />
       <TextField
         label={part?.units.trim() ? `数量（${part.units.trim()}）` : "数量"}
@@ -403,6 +454,25 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
       >
         {(_items, actions) => (
           <PickerTrigger label="状态" hint="库存项当前状态" text={statusLabel} onOpen={actions.open} />
+        )}
+      </Picker>
+      <TextField
+        label="采购价格"
+        hint="每单位或每包的价格，可留空"
+        inputMode="decimal"
+        value={purchasePrice}
+        onChange={setPurchasePrice}
+      />
+      <Picker
+        columns={[currencies]}
+        value={[currency]}
+        title="币种"
+        confirmText="确定"
+        cancelText="取消"
+        onConfirm={(next) => setCurrency(String(next[0] ?? "CNY"))}
+      >
+        {(_items, actions) => (
+          <PickerTrigger label="币种" hint="采购价格使用的币种" text={currency} onOpen={actions.open} />
         )}
       </Picker>
       <TextField label="批号" hint="批次编号" value={batch} onChange={setBatch} />

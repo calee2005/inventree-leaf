@@ -1121,6 +1121,9 @@ function stockItemBody(input: StockItemWrite) {
       : input.serial.trim()
         ? { serial: input.serial.trim() }
         : {}),
+    supplier_part: input.supplierPart,
+    purchase_price: input.purchasePrice.trim() || null,
+    purchase_price_currency: input.purchasePrice.trim() ? input.purchasePriceCurrency : null,
   };
 }
 
@@ -1170,6 +1173,8 @@ function parseStockItem(value: unknown): StockItemDetail | null {
     link: text(value, "link"),
     supplierPartId: idOf(value, "supplier_part"),
     supplierSku: text(value, "SKU"),
+    purchasePrice: decimalText(value, "purchase_price"),
+    purchasePriceCurrency: text(value, "purchase_price_currency"),
     updated: text(value, "updated"),
     stocktakeDate: text(value, "stocktake_date"),
   };
@@ -1513,7 +1518,9 @@ export async function listSupplierParts(
       pk,
       sku: text(item, "SKU"),
       supplierName: nested(item, "supplier_detail", "name"),
+      partId: idOf(item, "part") ?? 0,
       partName: firstText([nested(item, "part_detail", "full_name"), nested(item, "part_detail", "name")]),
+      partUnits: nested(item, "part_detail", "units"),
       supplierImage: nested(item, "supplier_detail", "thumbnail") || nested(item, "supplier_detail", "image"),
       partThumbnail: nested(item, "part_detail", "thumbnail"),
       inStock: num(item, "in_stock"),

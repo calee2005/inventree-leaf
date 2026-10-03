@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Popup from "antd-mobile/es/components/popup";
-import { listCompanies, listParts, readError, rememberCompany, rememberPart, recentCompanies, recentParts } from "../api";
+import { listCompanies, listParts, listSupplierParts, readError, rememberCompany, rememberPart, recentCompanies, recentParts } from "../api";
 import { InfiniteScroll } from "../MobileList";
 import { Notice } from "../Notice";
-import type { CommandFailure, CompanySummary, PartSummary } from "../types";
+import type { CommandFailure, CompanySummary, PartSummary, SupplierPartSummary } from "../types";
 import { PartCard } from "./PartCard";
 import { TextField } from "./TextField";
 import { formatStock } from "./quantity";
@@ -271,6 +271,50 @@ export function PartLookup({
           detail={part.description || part.ipn || undefined}
           trailing={formatStock(part.inStock, part.units)}
           selected={selected}
+          onClick={select}
+        />
+      )}
+    />
+  );
+}
+
+export function SupplierPartLookup({
+  serverId,
+  partId,
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  serverId: string;
+  partId: number | null;
+  label: string;
+  hint?: string;
+  value: { pk: number; sku: string; supplierName: string } | null;
+  onChange: (item: SupplierPartSummary) => void;
+}) {
+  const selected = value ? [value.supplierName, value.sku].filter(Boolean).join(" · ") : "";
+  return (
+    <LookupSheet
+      label={label}
+      hint={hint}
+      selectedLabel={selected}
+      selectedKey={value ? String(value.pk) : ""}
+      searchPlaceholder="搜索供应商零件"
+      emptyText="没有匹配的供应商零件"
+      recentItems={() => []}
+      loadPage={(query, offset) =>
+        listSupplierParts(serverId, offset, { part: partId && partId > 0 ? partId : undefined, search: query })
+      }
+      itemKey={(item) => String(item.pk)}
+      onSelect={onChange}
+      renderItem={(item, selectedItem, select) => (
+        <PartCard
+          serverId={serverId}
+          thumbnail={item.supplierImage || item.partThumbnail}
+          title={item.sku || "未编号"}
+          detail={[item.supplierName, item.partName].filter(Boolean).join(" · ") || undefined}
+          selected={selectedItem}
           onClick={select}
         />
       )}
