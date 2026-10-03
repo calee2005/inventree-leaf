@@ -953,6 +953,14 @@ input[type="password"] {
   font-weight: 650;
 }
 
+.part-pricing {
+  margin-top: 14px;
+}
+
+.part-pricing .detail-heading {
+  padding: 0 14px;
+}
+
 .detail-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;

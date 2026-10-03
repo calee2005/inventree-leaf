@@ -80,7 +80,22 @@ export type PartDetail = {
   requiredForSales: number;
   ordering: number;
   priceLabel: string | null;
+  isTemplate: boolean;
   parameters: PartParameter[];
+};
+
+export type PartPriceDetail = {
+  currency: string;
+  priceRange: string;
+  overrideMin: string;
+  overrideMax: string;
+  internalCost: string;
+  variantCost: string;
+  bomCost: string;
+  purchasePrice: string;
+  supplierPrice: string;
+  salePrice: string;
+  saleHistory: string;
 };
 
 export type PartStockItem = {

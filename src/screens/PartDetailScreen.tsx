@@ -222,6 +222,7 @@ export function PartDetailScreen() {
                 onOpenCategory={(id) =>
                   stack.push(id ? `/parts/category/${id}` : "/parts/category/root")
                 }
+                onOpenPricing={() => stack.push(`/parts/${part.pk}/pricing`)}
               />
             ) : null}
           </>
@@ -255,10 +256,12 @@ function DetailRows({
   part,
   onOpenTemplate,
   onOpenCategory,
+  onOpenPricing,
 }: {
   part: PartDetail;
   onOpenTemplate: (pk: number) => void;
   onOpenCategory: (id: number | null) => void;
+  onOpenPricing: () => void;
 }) {
   return (
     <div className="detail-group">
@@ -320,7 +323,12 @@ function DetailRows({
         <Row title="在途订购" detail="当前订购数量" aside={formatQty(part.ordering)} icon={<CartIcon />} />
       ) : null}
       {part.priceLabel !== null ? (
-        <Row title="价格" detail={part.priceLabel || "暂无价格"} icon={<PriceIcon />} />
+        <Row
+          title="价格"
+          detail={part.priceLabel || "暂无价格"}
+          icon={<PriceIcon />}
+          onClick={onOpenPricing}
+        />
       ) : null}
       {part.assembly && part.bomCount > 0 ? (
         <Row title="物料清单" aside={String(part.bomCount)} icon={<TreeIcon />} />

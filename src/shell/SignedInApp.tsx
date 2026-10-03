@@ -3,6 +3,7 @@ import { Navigate, Outlet, createMemoryRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import { CategoryScreen } from "../screens/CategoryScreen";
 import { PartDetailScreen } from "../screens/PartDetailScreen";
+import { PartPricingScreen } from "../screens/PartPricingScreen";
 import { PartsScreen } from "../screens/PartsScreen";
 import { RecordListScreen } from "../screens/RecordListScreen";
 import type { SessionUser } from "../types";
@@ -49,15 +50,23 @@ const signedInChildren = [
   {
     path: "/parts/category/:categoryId",
     element: (
-      <PageFrame back>
+      <PageFrame back title="零件类别">
         <CategoryScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/parts/:partId/pricing",
+    element: (
+      <PageFrame back title="零件价格">
+        <PartPricingScreen />
       </PageFrame>
     ),
   },
   {
     path: "/parts/:partId",
     element: (
-      <PageFrame back>
+      <PageFrame back title="零件详情">
         <PartDetailScreen />
       </PageFrame>
     ),

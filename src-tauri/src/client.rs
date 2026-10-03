@@ -198,7 +198,24 @@ pub struct PartDetail {
     pub required_for_sales: f64,
     pub ordering: f64,
     pub price_label: Option<String>,
+    pub is_template: bool,
     pub parameters: Vec<PartParameter>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartPriceDetail {
+    pub currency: String,
+    pub price_range: String,
+    pub override_min: String,
+    pub override_max: String,
+    pub internal_cost: String,
+    pub variant_cost: String,
+    pub bom_cost: String,
+    pub purchase_price: String,
+    pub supplier_price: String,
+    pub sale_price: String,
+    pub sale_history: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -477,6 +494,7 @@ pub fn parse_part_detail(body: &str) -> Result<PartDetail, ClientError> {
         required_for_sales: number_field(&value, "required_for_sales_orders"),
         ordering: number_field(&value, "ordering"),
         price_label: None,
+        is_template: bool_field(&value, "is_template", false),
         parameters: parse_parameters(&value),
     })
 }
@@ -531,6 +549,50 @@ pub fn parse_price_label(body: &str) -> Option<String> {
         &decimal_text(&value, "overall_max"),
         string_field(&value, "currency").trim(),
     ))
+}
+
+pub fn parse_part_pricing(body: &str) -> Result<PartPriceDetail, ClientError> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| ClientError::MissingData("价格不是 JSON".into()))?;
+    if !value.is_object() {
+        return Err(ClientError::MissingData("价格不是 JSON".into()));
+    }
+    let currency = string_field(&value, "currency").trim().to_string();
+    Ok(PartPriceDetail {
+        currency,
+        price_range: priced_range(&value, "overall_min", "overall_max"),
+        override_min: priced_override(&value, "override_min", "override_min_currency"),
+        override_max: priced_override(&value, "override_max", "override_max_currency"),
+        internal_cost: priced_range(&value, "internal_cost_min", "internal_cost_max"),
+        variant_cost: priced_range(&value, "variant_cost_min", "variant_cost_max"),
+        bom_cost: priced_range(&value, "bom_cost_min", "bom_cost_max"),
+        purchase_price: priced_range(&value, "purchase_cost_min", "purchase_cost_max"),
+        supplier_price: priced_range(&value, "supplier_price_min", "supplier_price_max"),
+        sale_price: priced_range(&value, "sale_price_min", "sale_price_max"),
+        sale_history: priced_range(&value, "sale_history_min", "sale_history_max"),
+    })
+}
+
+fn priced_range(value: &Value, min_key: &str, max_key: &str) -> String {
+    let currency = string_field(value, "currency").trim().to_string();
+    let text = format_price_range(
+        &decimal_text(value, min_key),
+        &decimal_text(value, max_key),
+        &currency,
+    );
+    if text.is_empty() { "-".into() } else { text }
+}
+
+fn priced_override(value: &Value, amount_key: &str, currency_key: &str) -> String {
+    let amount = decimal_text(value, amount_key);
+    if amount.is_empty() {
+        return String::new();
+    }
+    let currency = string_field(value, currency_key).trim().to_string();
+    if currency.is_empty() {
+        return "-".into();
+    }
+    format_price_range(&amount, &amount, &currency)
 }
 
 pub fn parse_list_count(body: &str) -> i64 {
@@ -1326,6 +1388,17 @@ pub async fn fetch_categories(
     parse_category_page(&body)
 }
 
+pub async fn fetch_part_pricing(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    pk: i64,
+) -> Result<PartPriceDetail, ClientError> {
+    let url = part_related_url(base, "pricing/", pk)?;
+    let body = get_text(&url, trust_invalid_certs, Some(&format!("Token {token}"))).await?;
+    parse_part_pricing(&body)
+}
+
 pub async fn fetch_part_category(
     base: &str,
     trust_invalid_certs: bool,
@@ -1739,6 +1812,21 @@ mod tests {
             "CNY 1.5 – 2"
         );
         assert_eq!(parse_price_label(r#"{"currency":"","overall_min":null,"overall_max":null}"#).unwrap(), "");
+        let pricing = parse_part_pricing(
+            r#"{"currency":"CNY","overall_min":"1.500000","overall_max":"2.000000","override_min":"1.2","override_min_currency":"CNY","override_max":null,"internal_cost_min":null,"internal_cost_max":null,"bom_cost_min":"0.400000","bom_cost_max":"0.400000","purchase_cost_min":"1","purchase_cost_max":"3","supplier_price_min":null,"supplier_price_max":"5","sale_price_min":"8","sale_price_max":"9","sale_history_min":null,"sale_history_max":null,"variant_cost_min":"1","variant_cost_max":"1","scheduled_for_update":false}"#,
+        )
+        .unwrap();
+        assert_eq!(pricing.currency, "CNY");
+        assert_eq!(pricing.price_range, "CNY 1.5 – 2");
+        assert_eq!(pricing.override_min, "CNY 1.2");
+        assert_eq!(pricing.override_max, "");
+        assert_eq!(pricing.internal_cost, "-");
+        assert_eq!(pricing.bom_cost, "CNY 0.4");
+        assert_eq!(pricing.purchase_price, "CNY 1 – 3");
+        assert_eq!(pricing.supplier_price, "CNY 5");
+        assert_eq!(pricing.sale_price, "CNY 8 – 9");
+        assert_eq!(pricing.sale_history, "-");
+        assert!(parse_part_pricing("[]").is_err());
         assert_eq!(parse_list_count(r#"{"count":12,"results":[]}"#), 12);
         assert_eq!(parse_list_count(r#"[{"pk":1}]"#), 1);
     }

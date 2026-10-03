@@ -93,6 +93,8 @@ token 写入单独的存储项，不放进服务器档案。
 | 供应商数量 | `GET {base}api/company/part/?part={pk}&limit=1`，仅可采购 |
 | 附件数量 | `GET {base}api/attachment/?model_type=part&model_id={pk}&limit=1` |
 | 价格区间 | `GET {base}api/part/{pk}/pricing/`，读 `currency`、`overall_min`、`overall_max` |
+
+价格行可以打开价格页，仍请求 `GET {base}api/part/{pk}/pricing/`。页面使用币种、总价区间、最低/最高覆盖价，以及内部成本、变体成本、物料清单成本、采购价格、供应商价格、销售价格和销售历史。变体成本只在 `is_template` 时显示，物料清单成本只在装配件显示，采购和供应商价格只在可采购时显示，销售两项只在可销售时显示。
 | 需求 | `GET {base}api/part/{pk}/requirements/`，读在产、可生产、分配和在途数量 |
 
 ## 零件库存

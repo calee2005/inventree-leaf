@@ -5,6 +5,7 @@ import type {
   CommandFailure,
   PartDetail,
   PartPage,
+  PartPriceDetail,
   PartStockPage,
   RecordPage,
   ServerInfo,
@@ -77,6 +78,10 @@ export function listParts(id: string, category: number | null, search: string, o
     search: search.trim() ? search.trim() : null,
     offset,
   });
+}
+
+export function getPartPricing(id: string, pk: number) {
+  return invoke<PartPriceDetail>("get_part_pricing", { id, pk });
 }
 
 export function getPartCategory(id: string, pk: number) {

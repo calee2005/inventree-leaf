@@ -18,6 +18,7 @@ pub fn run() {
             commands::list_parts,
             commands::get_part,
             commands::get_part_category,
+            commands::get_part_pricing,
             commands::list_part_stock,
             commands::list_part_categories,
             commands::list_records,

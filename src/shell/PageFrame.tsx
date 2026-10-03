@@ -5,10 +5,11 @@ import { useShell, type ShellPanel } from "./AppShell";
 
 type Props = {
   back?: boolean;
+  title?: string;
   children: ReactNode;
 };
 
-export function PageFrame({ back = false, children }: Props) {
+export function PageFrame({ back = false, title, children }: Props) {
   const shell = useShell();
   const stack = usePageStack();
 
@@ -37,7 +38,7 @@ export function PageFrame({ back = false, children }: Props) {
               }}
             >
               <ChevronLeft />
-              <span className="view-title">{shell.active.title}</span>
+              <span className="view-title">{title || shell.active.title}</span>
             </button>
           ) : (
             <button className="view-switch" type="button" aria-label="切换视图" onClick={toggle("views")}>
