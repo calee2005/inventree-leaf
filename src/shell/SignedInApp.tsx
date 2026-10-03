@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, Outlet, createMemoryRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
+import { CategoryScreen } from "../screens/CategoryScreen";
 import { PartDetailScreen } from "../screens/PartDetailScreen";
 import { PartsScreen } from "../screens/PartsScreen";
 import { RecordListScreen } from "../screens/RecordListScreen";
@@ -42,6 +43,14 @@ const signedInChildren = [
     element: (
       <PageFrame>
         <PartsScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/parts/category/:categoryId",
+    element: (
+      <PageFrame back>
+        <CategoryScreen />
       </PageFrame>
     ),
   },

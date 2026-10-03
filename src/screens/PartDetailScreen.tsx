@@ -219,6 +219,9 @@ export function PartDetailScreen() {
               <DetailRows
                 part={part}
                 onOpenTemplate={(pk) => stack.push(`/parts/${pk}`)}
+                onOpenCategory={(id) =>
+                  stack.push(id ? `/parts/category/${id}` : "/parts/category/root")
+                }
               />
             ) : null}
           </>
@@ -248,7 +251,15 @@ export function PartDetailScreen() {
   );
 }
 
-function DetailRows({ part, onOpenTemplate }: { part: PartDetail; onOpenTemplate: (pk: number) => void }) {
+function DetailRows({
+  part,
+  onOpenTemplate,
+  onOpenCategory,
+}: {
+  part: PartDetail;
+  onOpenTemplate: (pk: number) => void;
+  onOpenCategory: (id: number | null) => void;
+}) {
   return (
     <div className="detail-group">
       {!part.active ? (
@@ -262,7 +273,12 @@ function DetailRows({ part, onOpenTemplate }: { part: PartDetail; onOpenTemplate
           onClick={() => onOpenTemplate(part.templatePk as number)}
         />
       ) : null}
-      <Row title="零件类别" detail={part.categoryName || "未分类"} icon={<SitemapIcon />} />
+      <Row
+        title="零件类别"
+        detail={part.categoryName || "未分类"}
+        icon={<SitemapIcon />}
+        onClick={() => onOpenCategory(part.categoryId)}
+      />
       {part.variantCount > 0 ? (
         <Row title="变体" aside={String(part.variantCount)} icon={<VersionsIcon />} />
       ) : null}

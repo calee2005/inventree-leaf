@@ -940,6 +940,19 @@ input[type="password"] {
   gap: 12px;
 }
 
+.detail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.section-label {
+  margin: 0;
+  color: #8d93a0;
+  font-size: 13px;
+  font-weight: 650;
+}
+
 .detail-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;

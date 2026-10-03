@@ -112,6 +112,20 @@ pub struct PartPage {
 pub struct CategorySummary {
     pub pk: i64,
     pub name: String,
+    pub pathstring: String,
+    pub part_count: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartCategory {
+    pub pk: i64,
+    pub name: String,
+    pub description: String,
+    pub parent_id: Option<i64>,
+    pub parent_path: String,
+    pub part_count: i64,
+    pub subcategory_count: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -162,6 +176,7 @@ pub struct PartDetail {
     pub salable: bool,
     pub in_stock: f64,
     pub category_name: String,
+    pub category_id: Option<i64>,
     pub location: String,
     pub keywords: String,
     pub link: String,
@@ -440,6 +455,7 @@ pub fn parse_part_detail(body: &str) -> Result<PartDetail, ClientError> {
         salable: bool_field(&value, "salable", false),
         in_stock: number_field(&value, "in_stock"),
         category_name,
+        category_id: optional_id(&value, "category"),
         location,
         keywords: string_field(&value, "keywords"),
         link: string_field(&value, "link"),
@@ -648,11 +664,44 @@ fn parse_category_rows(items: &[Value]) -> Vec<CategorySummary> {
 }
 
 fn parse_category(value: &Value) -> Option<CategorySummary> {
-    let pk = value.get("pk").and_then(Value::as_i64)?;
+    let pk = value.get("pk").and_then(json_i64)?;
     Some(CategorySummary {
         pk,
         name: string_field(value, "name"),
+        pathstring: string_field(value, "pathstring"),
+        part_count: number_field(value, "part_count") as i64,
     })
+}
+
+pub fn parse_part_category(body: &str) -> Result<PartCategory, ClientError> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| ClientError::MissingData("类别详情不是 JSON".into()))?;
+    let pk = value
+        .get("pk")
+        .and_then(json_i64)
+        .ok_or_else(|| ClientError::MissingData("类别详情里没有 pk".into()))?;
+    let pathstring = string_field(&value, "pathstring");
+    Ok(PartCategory {
+        pk,
+        name: string_field(&value, "name"),
+        description: string_field(&value, "description"),
+        parent_id: optional_id(&value, "parent"),
+        parent_path: parent_category_path(&pathstring),
+        part_count: number_field(&value, "part_count") as i64,
+        subcategory_count: number_field(&value, "subcategories") as i64,
+    })
+}
+
+fn parent_category_path(pathstring: &str) -> String {
+    let mut parts: Vec<&str> = pathstring
+        .split('/')
+        .filter(|part| !part.trim().is_empty())
+        .collect();
+    if parts.len() <= 1 {
+        return String::new();
+    }
+    parts.pop();
+    parts.join("/")
 }
 
 pub fn part_list_url(
@@ -682,6 +731,13 @@ pub fn part_list_url(
         pairs.push(("search", search.to_string()));
     }
     with_query(&api_url(base, "api/part/")?, &pairs)
+}
+
+pub fn part_category_url(base: &str, pk: i64) -> Result<String, ClientError> {
+    if pk <= 0 {
+        return Err(ClientError::Invalid("类别不存在".into()));
+    }
+    api_url(base, &format!("api/part/category/{pk}/"))
 }
 
 pub fn part_detail_url(base: &str, pk: i64) -> Result<String, ClientError> {
@@ -1270,6 +1326,17 @@ pub async fn fetch_categories(
     parse_category_page(&body)
 }
 
+pub async fn fetch_part_category(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    pk: i64,
+) -> Result<PartCategory, ClientError> {
+    let url = part_category_url(base, pk)?;
+    let body = get_text(&url, trust_invalid_certs, Some(&format!("Token {token}"))).await?;
+    parse_part_category(&body)
+}
+
 pub async fn fetch_records(
     base: &str,
     trust_invalid_certs: bool,
@@ -1494,6 +1561,23 @@ mod tests {
         assert_eq!(page.results[0].name, "耗材");
         let raw = parse_category_page(r#"[{"pk":2,"name":"3D打印耗材"}]"#).unwrap();
         assert_eq!(raw.results[0].pk, 2);
+        let category = parse_part_category(
+            r#"{"pk":8,"name":"电阻","description":"贴片","parent":2,"pathstring":"电子/电阻","part_count":4,"subcategories":1,"level":1,"starred":false}"#,
+        )
+        .unwrap();
+        assert_eq!(category.parent_id, Some(2));
+        assert_eq!(category.parent_path, "电子");
+        assert_eq!(category.part_count, 4);
+        assert_eq!(
+            parse_part_category(
+                r#"{"pk":2,"name":"电子","description":"","parent":null,"pathstring":"电子","part_count":0,"subcategories":3,"level":0,"starred":false}"#,
+            )
+            .unwrap()
+            .parent_path,
+            ""
+        );
+        assert!(parse_part_category("{}").is_err());
+        assert!(part_category_url("https://demo.example.com", 8).unwrap().ends_with("/api/part/category/8/"));
     }
 
     #[test]
@@ -1626,7 +1710,7 @@ mod tests {
     #[test]
     fn parses_part_detail_and_related_counts() {
         let detail = parse_part_detail(
-            r#"{"pk":9,"name":"电阻","full_name":"R 电阻","description":"10k","thumbnail":"/media/r.png","image":"/media/r-full.png","units":"个","active":false,"assembly":true,"component":true,"purchaseable":true,"salable":false,"in_stock":"4","category_name":"","category_detail":{"name":"电子"},"default_location_detail":{"name":"A1","pathstring":"仓库/A1"},"keywords":"电阻 10k","link":"https://example.com/r","notes":"注意极性","variant_of":3,"building":2,"scheduled_to_build":5,"allocated_to_build_orders":1,"required_for_build_orders":4,"ordering":6,"parameters":[{"pk":1,"data":"10k","template":2,"template_detail":{"name":"阻值","units":"Ω"},"model_id":9}]}"#,
+            r#"{"pk":9,"name":"电阻","full_name":"R 电阻","description":"10k","thumbnail":"/media/r.png","image":"/media/r-full.png","category":8,"units":"个","active":false,"assembly":true,"component":true,"purchaseable":true,"salable":false,"in_stock":"4","category_name":"","category_detail":{"name":"电子"},"default_location_detail":{"name":"A1","pathstring":"仓库/A1"},"keywords":"电阻 10k","link":"https://example.com/r","notes":"注意极性","variant_of":3,"building":2,"scheduled_to_build":5,"allocated_to_build_orders":1,"required_for_build_orders":4,"ordering":6,"parameters":[{"pk":1,"data":"10k","template":2,"template_detail":{"name":"阻值","units":"Ω"},"model_id":9}]}"#,
         )
         .unwrap();
         assert_eq!(detail.full_name, "R 电阻");
@@ -1634,6 +1718,7 @@ mod tests {
         assert_eq!(detail.thumbnail, "/media/r.png");
         assert!(!detail.active);
         assert_eq!(detail.category_name, "电子");
+        assert_eq!(detail.category_id, Some(8));
         assert_eq!(detail.location, "仓库/A1");
         assert_eq!(detail.in_stock, 4.0);
         assert_eq!(detail.template_pk, Some(3));

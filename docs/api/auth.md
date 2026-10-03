@@ -73,6 +73,9 @@ token 写入单独的存储项，不放进服务器档案。
 
 - `pk`、`name`、`full_name`、`description`、`image`、`thumbnail`、`units`、`active`
 - 宽图用 `image`。没有原图或原图下载失败时，才退回 `thumbnail`
+- `category`：类别 id。详情里的「零件类别」用它打开类别页
+
+类别页读取 `GET {base}api/part/category/{pk}/`，使用 `name`、`description`、`parent`、`pathstring`、`part_count`、`subcategories`。子类别沿用类别列表，`parent=<id>`；该类别下的零件沿用零件列表，`category=<id>`。没有类别时打开上一级，子类别用 `top_level=true`，零件用 `category=null`。
 - `assembly`、`component`、`purchaseable`、`salable`
 - `in_stock`、`category_name`（空则用 `category_detail.name`）
 - `default_location_detail.pathstring`，空则用其中的 `name`

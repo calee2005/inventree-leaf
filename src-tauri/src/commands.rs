@@ -1,6 +1,6 @@
 use crate::client::{
-    self, CategoryPage, ClientError, PartDetail, PartPage, PartStockPage, RecordPage, ServerInfo,
-    SessionUser,
+    self, CategoryPage, ClientError, PartCategory, PartDetail, PartPage, PartStockPage, RecordPage,
+    ServerInfo, SessionUser,
 };
 use crate::store::{self, ServerView};
 use tauri::AppHandle;
@@ -101,6 +101,21 @@ pub async fn list_parts(
             offset.unwrap_or(0),
         )
         .await,
+    )
+}
+
+#[tauri::command]
+pub async fn get_part_category(
+    app: AppHandle,
+    id: String,
+    pk: i64,
+) -> Result<PartCategory, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::fetch_part_category(&profile.server, profile.trusted_certificate, &token, pk).await,
     )
 }
 

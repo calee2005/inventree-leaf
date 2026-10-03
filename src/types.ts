@@ -58,6 +58,7 @@ export type PartDetail = {
   salable: boolean;
   inStock: number;
   categoryName: string;
+  categoryId: number | null;
   location: string;
   keywords: string;
   link: string;
@@ -98,6 +99,18 @@ export type PartStockPage = {
 export type CategorySummary = {
   pk: number;
   name: string;
+  pathstring: string;
+  partCount: number;
+};
+
+export type PartCategory = {
+  pk: number;
+  name: string;
+  description: string;
+  parentId: number | null;
+  parentPath: string;
+  partCount: number;
+  subcategoryCount: number;
 };
 
 export type CategoryPage = {
