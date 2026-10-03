@@ -177,6 +177,15 @@ export function AppShell({ serverId, user, views, onLoggedOut, onLeave, children
               <span className="connected">已连接</span>
               {server ? <small>{server.server}</small> : null}
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPanel(null);
+                stack.push("/about");
+              }}
+            >
+              关于
+            </button>
             <button type="button" onClick={() => void onLogout()}>
               退出登录
             </button>

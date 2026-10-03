@@ -12,6 +12,8 @@ export type ServerInfo = {
   version: string;
   apiVersion: number;
   instance: string;
+  pluginsEnabled: boolean | null;
+  workerRunning: boolean | null;
 };
 
 export type SessionUser = {

@@ -425,20 +425,41 @@ export async function testConnection(id: string): Promise<ServerInfo> {
   return fetchServerInfo(requireServer(id).server);
 }
 
+export async function serverStatus(id: string): Promise<ServerInfo> {
+  const base = requireServer(id).server;
+  const value = await authed(id, apiUrl(base, "api/"));
+  return parseServerInfo(value);
+}
+
 async function fetchServerInfo(base: string): Promise<ServerInfo> {
-  const value = asObject(await request(apiUrl(base, "api/")));
+  return parseServerInfo(await request(apiUrl(base, "api/")));
+}
+
+function parseServerInfo(payload: unknown): ServerInfo {
+  const value = asObject(payload);
   const version = text(value, "version").trim();
   if (!version) {
     throw fail("missingData", "响应里没有服务器版本");
   }
-  const apiVersion = asObject(value)?.apiVersion;
+  const apiVersion = value?.apiVersion;
   if (typeof apiVersion !== "number") {
     throw fail("missingData", "响应里没有 API 版本");
   }
   if (apiVersion < MIN_API) {
     throw fail("oldApi", `服务器 API 版本 ${apiVersion} 低于最低要求 ${MIN_API}`);
   }
-  return { version, apiVersion, instance: text(value, "instance") };
+  return {
+    version,
+    apiVersion,
+    instance: text(value, "instance"),
+    pluginsEnabled: optionalBool(value, "plugins_enabled"),
+    workerRunning: optionalBool(value, "worker_running"),
+  };
+}
+
+function optionalBool(value: Json | null, key: string): boolean | null {
+  const item = value?.[key];
+  return typeof item === "boolean" ? item : null;
 }
 
 export async function login(id: string, username: string, password: string): Promise<SessionUser> {

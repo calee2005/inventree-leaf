@@ -27,6 +27,7 @@ export {
   login,
   logout,
   saveServer,
+  serverStatus,
   selectServer,
   testConnection,
   updateBomItem,

@@ -7,6 +7,7 @@ import { PartDetailScreen } from "../screens/PartDetailScreen";
 import { PartFormScreen } from "../screens/PartFormScreen";
 import { PartPricingScreen } from "../screens/PartPricingScreen";
 import { SupplierPartDetailScreen, SupplierPartListScreen } from "../screens/SupplierPartScreen";
+import { AboutScreen } from "../screens/AboutScreen";
 import { PartsScreen } from "../screens/PartsScreen";
 import { RecordListScreen } from "../screens/RecordListScreen";
 import type { SessionUser } from "../types";
@@ -42,6 +43,14 @@ type Props = {
 };
 
 const signedInChildren = [
+  {
+    path: "/about",
+    element: (
+      <PageFrame back title="关于">
+        <AboutScreen />
+      </PageFrame>
+    ),
+  },
   {
     path: "/parts",
     element: (
