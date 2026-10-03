@@ -17,11 +17,13 @@ import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
 import { useShell } from "../shell/AppShell";
 import type { BomItemWrite, BomLine, CommandFailure, PartSummary } from "../types";
+import { CheckField } from "../ui/CheckField";
 import { DetailGroup } from "../ui/DetailGroup";
 import { DetailHeading } from "../ui/DetailHeading";
 import { DetailRow } from "../ui/DetailRow";
 import { PartCard } from "../ui/PartCard";
 import { SectionLabel } from "../ui/SectionLabel";
+import { TextField } from "../ui/TextField";
 import { formatQty } from "../ui/quantity";
 
 export function BomListScreen({ usedIn }: { usedIn: boolean }) {
@@ -290,15 +292,14 @@ export function BomLineScreen() {
                 />
               ))}
             </DetailGroup>
-            <label>
-              添加替代料
-              <input
-                type="search"
-                placeholder="搜索零件"
-                value={substituteQuery}
-                onChange={(event) => setSubstituteQuery(event.target.value)}
-              />
-            </label>
+            <TextField
+              label="添加替代料"
+              hint="搜索并添加可替代此组件的零件"
+              type="search"
+              placeholder="搜索零件"
+              value={substituteQuery}
+              onChange={setSubstituteQuery}
+            />
             <ul className="bom-hits">
               {substituteHits.map((part) => (
                 <li key={part.pk}>
@@ -450,15 +451,14 @@ function BomEditor({
       }}
     >
       <Notice error={error} />
-      <label>
-        组件
-        <input
-          type="search"
-          placeholder="搜索零件"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
+      <TextField
+        label="组件"
+        hint="此物料行使用的零件"
+        type="search"
+        placeholder="搜索零件"
+        value={query}
+        onChange={setQuery}
+      />
       {chosen ? <p className="muted">已选 {chosen.name}</p> : null}
       <ul className="bom-hits">
         {hits.map((part) => (
@@ -473,46 +473,28 @@ function BomEditor({
           </li>
         ))}
       </ul>
-      <label>
-        数量
-        <input value={quantity} inputMode="decimal" onChange={(event) => setQuantity(event.target.value)} />
-      </label>
-      <label>
-        参考
-        <input value={reference} onChange={(event) => setReference(event.target.value)} />
-      </label>
-      <label>
-        备注
-        <input value={note} onChange={(event) => setNote(event.target.value)} />
-      </label>
-      <label>
-        准备数量
-        <input value={setupQuantity} inputMode="decimal" onChange={(event) => setSetupQuantity(event.target.value)} />
-      </label>
-      <label>
-        损耗
-        <input value={attrition} inputMode="decimal" onChange={(event) => setAttrition(event.target.value)} />
-      </label>
-      <label>
-        取整倍数
-        <input value={rounding} inputMode="decimal" onChange={(event) => setRounding(event.target.value)} />
-      </label>
-      <label className="check">
-        <input type="checkbox" checked={allowVariants} onChange={(event) => setAllowVariants(event.target.checked)} />
-        允许使用变体库存
-      </label>
-      <label className="check">
-        <input type="checkbox" checked={inherited} onChange={(event) => setInherited(event.target.checked)} />
-        变体继承此行
-      </label>
-      <label className="check">
-        <input type="checkbox" checked={optional} onChange={(event) => setOptional(event.target.checked)} />
-        可选项
-      </label>
-      <label className="check">
-        <input type="checkbox" checked={consumable} onChange={(event) => setConsumable(event.target.checked)} />
-        消耗品
-      </label>
+      <TextField label="数量" hint="此物料行需要的数量" inputMode="decimal" value={quantity} onChange={setQuantity} />
+      <TextField label="参考" hint="物料行的参考位号" value={reference} onChange={setReference} />
+      <TextField label="备注" hint="物料行备注" value={note} onChange={setNote} />
+      <TextField
+        label="准备数量"
+        hint="为准备损耗额外预留的数量"
+        inputMode="decimal"
+        value={setupQuantity}
+        onChange={setSetupQuantity}
+      />
+      <TextField label="损耗" hint="预计损耗，按百分比计算" inputMode="decimal" value={attrition} onChange={setAttrition} />
+      <TextField
+        label="取整倍数"
+        hint="把需求数量向上取整到此倍数"
+        inputMode="decimal"
+        value={rounding}
+        onChange={setRounding}
+      />
+      <CheckField label="允许使用变体库存" hint="可以用此零件变体的库存代替" checked={allowVariants} onChange={setAllowVariants} />
+      <CheckField label="变体继承此行" hint="变体零件的物料清单会继承此行" checked={inherited} onChange={setInherited} />
+      <CheckField label="可选项" hint="装配时可以不安装此零件" checked={optional} onChange={setOptional} />
+      <CheckField label="消耗品" hint="消耗品不需要追踪库存" checked={consumable} onChange={setConsumable} />
       <button className="form-primary" type="submit" disabled={saving}>
         {saving ? "正在保存…" : "保存"}
       </button>

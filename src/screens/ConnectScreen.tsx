@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { listServers, login, logout, readError, testConnection } from "../api";
 import { Notice } from "../Notice";
 import type { CommandFailure, ServerInfo, ServerView, SessionUser } from "../types";
+import { TextField } from "../ui/TextField";
 
 type Props = {
   serverId: string;
@@ -93,19 +94,14 @@ export function ConnectScreen({ serverId, onBack, onLoggedIn }: Props) {
         </p>
       ) : null}
       <Notice error={error} />
-      <label>
-        用户名
-        <input value={username} onChange={(event) => setUsername(event.target.value)} type="text" autoComplete="username" />
-      </label>
-      <label>
-        密码
-        <input
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          type="password"
-          autoComplete="current-password"
-        />
-      </label>
+      <TextField label="用户名" value={username} onChange={setUsername} autoComplete="username" />
+      <TextField
+        label="密码"
+        type="password"
+        value={password}
+        onChange={setPassword}
+        autoComplete="current-password"
+      />
       <button className="primary" type="submit" disabled={busy || !server}>
         登录
       </button>

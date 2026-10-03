@@ -43,11 +43,39 @@ export type PartParameter = {
   units: string;
 };
 
+export type LookupHit = {
+  pk: number;
+  name: string;
+  pathstring: string;
+};
+
+export type PartWrite = {
+  name: string;
+  description: string;
+  ipn: string;
+  revision: string;
+  keywords: string;
+  link: string;
+  category: number | null;
+  defaultLocation: number | null;
+  units: string;
+  active: boolean;
+  assembly: boolean;
+  component: boolean;
+  purchaseable: boolean;
+  salable: boolean;
+  trackable: boolean;
+  isTemplate: boolean;
+  virtual: boolean;
+};
+
 export type PartDetail = {
   pk: number;
   name: string;
   fullName: string;
   description: string;
+  ipn: string;
+  revision: string;
   thumbnail: string;
   image: string;
   units: string;
@@ -60,6 +88,10 @@ export type PartDetail = {
   categoryName: string;
   categoryId: number | null;
   location: string;
+  locationId: number | null;
+  trackable: boolean;
+  virtual: boolean;
+  locked: boolean;
   keywords: string;
   link: string;
   notes: string;

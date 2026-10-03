@@ -4,6 +4,7 @@ import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import { useShell } from "../shell/AppShell";
 import type { CommandFailure, RecordSummary } from "../types";
+import { TextField } from "../ui/TextField";
 
 type Props = {
   kind: string;
@@ -96,13 +97,12 @@ export function RecordListScreen({ kind, emptyText }: Props) {
         </div>
       </div>
       {searchOpen ? (
-        <input
+        <TextField
           ref={searchRef}
-          className="part-search"
-          type="search"
+          variant="search"
           placeholder="输入关键词检索"
           value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
+          onChange={setSearchInput}
           enterKeyHint="search"
         />
       ) : null}

@@ -197,6 +197,7 @@ export function PartDetailScreen() {
                 onOpenSuppliers={() => stack.push(`/parts/${part.pk}/suppliers`)}
                 onOpenBom={() => stack.push(`/parts/${part.pk}/bom`)}
                 onOpenUsedIn={() => stack.push(`/parts/${part.pk}/used-in`)}
+                onEdit={() => stack.push(`/parts/${part.pk}/edit`)}
               />
             ) : null}
           </>
@@ -235,6 +236,7 @@ function DetailRows({
   onOpenSuppliers,
   onOpenBom,
   onOpenUsedIn,
+  onEdit,
 }: {
   part: PartDetail;
   onOpenTemplate: (pk: number) => void;
@@ -243,9 +245,11 @@ function DetailRows({
   onOpenSuppliers: () => void;
   onOpenBom: () => void;
   onOpenUsedIn: () => void;
+  onEdit: () => void;
 }) {
   return (
     <div className="detail-group">
+      <Row title="编辑零件" onClick={onEdit} />
       {!part.active ? (
         <Row title="未激活" detail="此零件已停用" danger icon={<AlertIcon />} />
       ) : null}

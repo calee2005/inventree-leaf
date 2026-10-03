@@ -6,8 +6,10 @@ import type {
   CategoryPage,
   CategorySummary,
   PartCategory,
+  LookupHit,
   PartDetail,
   PartPage,
+  PartWrite,
   PartParameter,
   PartPriceDetail,
   PartStockPage,
@@ -192,18 +194,43 @@ function statusKind(status: number): string {
 
 function detailMessage(body: string, status: number): string {
   try {
-    const parsed = JSON.parse(body) as Json;
-    const detail = parsed.detail;
-    if (typeof detail === "string" && detail.trim()) {
-      return detail.trim();
-    }
-    if (detail !== undefined && detail !== null) {
-      return String(detail);
+    const parsed = JSON.parse(body) as unknown;
+    const lines: string[] = [];
+    collectMessages(parsed, lines);
+    if (lines.length > 0) {
+      return lines.join("\n");
     }
   } catch {
     // 非 JSON 错误正文
   }
   return `服务器返回 ${status}`;
+}
+
+function collectMessages(value: unknown, lines: string[]) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed) {
+      lines.push(trimmed);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectMessages(item, lines));
+    return;
+  }
+  const object = asObject(value);
+  if (!object) {
+    return;
+  }
+  const detail = object.detail;
+  if (detail !== undefined) {
+    collectMessages(detail, lines);
+  }
+  for (const [key, item] of Object.entries(object)) {
+    if (key !== "detail") {
+      collectMessages(item, lines);
+    }
+  }
 }
 
 async function authed(id: string, url: string, init: { method?: string; json?: unknown } = {}) {
@@ -577,6 +604,8 @@ function parsePartDetail(value: unknown): PartDetail {
     name,
     fullName,
     description: text(value, "description"),
+    ipn: text(value, "IPN"),
+    revision: text(value, "revision"),
     thumbnail: text(value, "thumbnail"),
     image: text(value, "image"),
     units: text(value, "units"),
@@ -589,6 +618,10 @@ function parsePartDetail(value: unknown): PartDetail {
     categoryName,
     categoryId: idOf(value, "category"),
     location,
+    locationId: idOf(value, "default_location"),
+    trackable: bool(value, "trackable", false),
+    virtual: bool(value, "virtual", false),
+    locked: bool(value, "locked", false),
     keywords: text(value, "keywords"),
     link: text(value, "link"),
     notes: text(value, "notes"),
@@ -704,6 +737,93 @@ export async function getPart(id: string, pk: number): Promise<PartDetail> {
     detail.requiredForSales = num(requirements, "required_for_sales_orders");
   }
   return detail;
+}
+
+function partBody(input: PartWrite) {
+  return {
+    name: input.name.trim(),
+    description: input.description,
+    IPN: input.ipn,
+    revision: input.revision,
+    keywords: input.keywords,
+    link: input.link.trim(),
+    category: input.category,
+    default_location: input.defaultLocation,
+    units: input.units,
+    active: input.active,
+    assembly: input.assembly,
+    component: input.component,
+    purchaseable: input.purchaseable,
+    salable: input.salable,
+    trackable: input.trackable,
+    is_template: input.isTemplate,
+    virtual: input.virtual,
+  };
+}
+
+function requirePartWrite(input: PartWrite) {
+  if (!input.name.trim()) {
+    throw fail("invalid", "请填写名称");
+  }
+  const link = input.link.trim();
+  if (link && !/^https?:\/\//i.test(link)) {
+    throw fail("invalid", "链接需要以 http:// 或 https:// 开头");
+  }
+}
+
+export async function createPart(id: string, input: PartWrite): Promise<number> {
+  requirePartWrite(input);
+  const value = await authed(id, apiUrl(requireServer(id).server, "api/part/"), {
+    method: "POST",
+    json: partBody(input),
+  });
+  const pk = idOf(value, "pk");
+  if (!pk) {
+    throw fail("missingData", "新零件里没有 pk");
+  }
+  return pk;
+}
+
+export async function updatePart(id: string, pk: number, input: PartWrite) {
+  if (pk <= 0) {
+    throw fail("invalid", "零件不存在");
+  }
+  requirePartWrite(input);
+  await authed(id, apiUrl(requireServer(id).server, `api/part/${pk}/`), {
+    method: "PATCH",
+    json: partBody(input),
+  });
+}
+
+export async function searchPartCategories(id: string, search: string): Promise<LookupHit[]> {
+  return searchLookup(id, "api/part/category/", search);
+}
+
+export async function searchStockLocations(id: string, search: string): Promise<LookupHit[]> {
+  return searchLookup(id, "api/stock/location/", search);
+}
+
+async function searchLookup(id: string, path: string, search: string): Promise<LookupHit[]> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, path), [
+      ["limit", "25"],
+      ["offset", "0"],
+      ["search", search.trim()],
+    ]),
+  );
+  return pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const hit: LookupHit = {
+      pk,
+      name: text(item, "name"),
+      pathstring: text(item, "pathstring"),
+    };
+    return [hit];
+  });
 }
 
 export async function getPartPricing(id: string, pk: number): Promise<PartPriceDetail> {

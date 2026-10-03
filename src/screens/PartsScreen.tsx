@@ -6,6 +6,7 @@ import { useShell } from "../shell/AppShell";
 import { usePageStack } from "../shell/pageStack";
 import type { CategorySummary, CommandFailure, PartSummary } from "../types";
 import { PartCard } from "../ui/PartCard";
+import { TextField } from "../ui/TextField";
 import { formatStock } from "../ui/quantity";
 import { CategoryPath } from "./CategoryPath";
 
@@ -23,13 +24,25 @@ export function PartsScreen() {
   const [hasMore, setHasMore] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
   const offsetRef = useRef(0);
+  const trailRef = useRef(trail);
+  const stackRef = useRef(stack);
+  trailRef.current = trail;
+  stackRef.current = stack;
 
   useEffect(() => {
     setActions([
       {
         id: "create-part",
         label: "创建新零件",
-        onSelect: () => setBlocked("创建零件还不能提交。"),
+        onSelect: () => {
+          const current = trailRef.current[trailRef.current.length - 1];
+          stackRef.current.push(
+            "/parts/new",
+            current
+              ? { categoryId: current.pk, categoryName: current.pathstring || current.name }
+              : null,
+          );
+        },
       },
       {
         id: "create-category",
@@ -140,13 +153,12 @@ export function PartsScreen() {
         ) : null}
       </div>
       {searchOpen ? (
-        <input
+        <TextField
           ref={searchRef}
-          className="part-search"
-          type="search"
+          variant="search"
           placeholder="输入关键词检索"
           value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
+          onChange={setSearchInput}
           enterKeyHint="search"
         />
       ) : null}

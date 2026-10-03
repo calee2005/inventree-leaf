@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { readError, saveServer } from "../api";
 import { Notice } from "../Notice";
 import type { CommandFailure, ServerView } from "../types";
+import { TextField } from "../ui/TextField";
 
 type Props = {
   server: ServerView | null;
@@ -41,20 +42,14 @@ export function ServerFormScreen({ server, onCancel, onSaved }: Props) {
           <p className="muted">地址需要包含 http:// 或 https://。</p>
         </div>
       </header>
-      <label>
-        显示名
-        <input value={name} onChange={(event) => setName(event.target.value)} type="text" />
-      </label>
-      <label>
-        服务器地址
-        <input
-          value={address}
-          onChange={(event) => setAddress(event.target.value)}
-          type="text"
-          inputMode="url"
-          placeholder="http://192.168.1.20:8000"
-        />
-      </label>
+      <TextField label="显示名" value={name} onChange={setName} />
+      <TextField
+        label="服务器地址"
+        inputMode="url"
+        placeholder="http://192.168.1.20:8000"
+        value={address}
+        onChange={setAddress}
+      />
       <Notice error={error} />
       <button className="primary" type="submit" disabled={saving}>
         {saving ? "正在保存…" : "保存"}

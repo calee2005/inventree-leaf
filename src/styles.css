@@ -172,33 +172,124 @@ button:not(:disabled):active,
   flex: 1;
 }
 
-label {
+.field {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  color: #8d93a0;
+  font-size: 13px;
   font-weight: 650;
 }
 
-label.check {
-  flex-direction: row;
-  align-items: center;
+.field-input {
+  width: 100%;
   min-height: 48px;
+  border: none;
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(20, 24, 32, 0.06), 0 8px 18px rgba(20, 24, 32, 0.04);
+  color: #1c1c1e;
+  font-size: 16px;
   font-weight: 550;
 }
 
-input[type="text"],
-input[type="url"],
-input[type="password"] {
-  min-height: 48px;
-  border: 1px solid #c5d1ca;
-  border-radius: 10px;
-  padding: 10px 12px;
+.field-input::placeholder {
+  color: #a3a8b3;
+  font-weight: 450;
+}
+
+.field-input:focus {
+  outline: 2px solid rgba(47, 120, 246, 0.35);
+}
+
+.field-hint,
+.check-copy small {
+  color: #8d93a0;
+  font-size: 12px;
+  font-weight: 450;
+  line-height: 1.4;
+}
+
+.field-hint {
+  margin: 0;
+}
+
+.check-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.field-input.is-search {
+  min-height: 40px;
+  border-radius: 999px;
+  padding: 8px 16px;
+  background: #e6e8ee;
+  box-shadow: none;
+  text-align: center;
+  font-weight: 450;
+}
+
+.check-field {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 14px;
+  border-radius: 16px;
   background: #fff;
+  box-shadow: 0 1px 3px rgba(20, 24, 32, 0.06), 0 8px 18px rgba(20, 24, 32, 0.04);
+  color: #1c1c1e;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.check-field input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+}
+
+.check-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid #d5d8e0;
+  border-radius: 7px;
+  background: #f4f5f7;
+}
+
+.check-field input:checked + .check-mark {
+  border-color: #2f78f6;
+  background: #2f78f6;
+}
+
+.check-field input:checked + .check-mark::after {
+  content: "";
+  width: 6px;
+  height: 10px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.check-field input:focus-visible + .check-mark {
+  outline: 2px solid rgba(47, 120, 246, 0.35);
 }
 
 .notice {
   margin: 0;
   padding: 12px;
+  white-space: pre-line;
   border-radius: 10px;
   background: #fdecec;
   color: #7f1d1d;
@@ -546,24 +637,6 @@ input[type="password"] {
   gap: 10px;
 }
 
-.part-search {
-  width: 100%;
-  min-height: 40px;
-  border: none;
-  border-radius: 999px;
-  background: #e6e8ee;
-  padding: 8px 16px;
-  text-align: center;
-  color: #1c1c1e;
-}
-
-.part-search::placeholder {
-  color: #a3a8b3;
-}
-
-.part-search:focus {
-  outline: 2px solid rgba(47, 120, 246, 0.35);
-}
 
 .crumb-row {
   position: relative;
@@ -762,30 +835,36 @@ input[type="password"] {
   position: absolute;
   z-index: 6;
   top: calc(56px + env(safe-area-inset-top, 0px));
-  left: env(safe-area-inset-left, 0px);
+  left: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  width: max-content;
-  max-width: min(320px, 100%);
+  width: calc(
+    (
+        100% - 12px - env(safe-area-inset-left, 0px) - 12px - env(safe-area-inset-right, 0px) - 28px -
+          16px
+      ) / 2
+  );
 }
 
 .shell.shell-app .view-overlay button {
-  width: max-content;
-  min-width: 100%;
+  width: 100%;
   min-height: 44px;
-  padding: 8px 12px;
+  padding: 8px 12px 8px calc(12px + env(safe-area-inset-left, 0px));
   border-radius: 0;
   background: linear-gradient(
     100deg,
     color-mix(in srgb, var(--view-color, #2f78f6) 28%, #f4f5f7) 0%,
-    color-mix(in srgb, var(--view-color, #2f78f6) 12%, #f4f5f7) 46%,
+    color-mix(in srgb, var(--view-color, #2f78f6) 14%, #f4f5f7) 38%,
     transparent 100%
   );
+  overflow: hidden;
   color: var(--view-color, #2f78f6);
   font-size: 17px;
   font-weight: 650;
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .server-menu {
@@ -1021,6 +1100,29 @@ input[type="password"] {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.relation-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.relation-picked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+
+.shell.shell-app .relation-picked button {
+  flex: none;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #fff;
+  color: #2f78f6;
 }
 
 .bom-hits {

@@ -2,6 +2,7 @@ import type { CommandFailure } from "./types";
 
 export {
   createBomItem,
+  createPart,
   createBomSubstitute,
   currentUser,
   deleteBomItem,
@@ -14,6 +15,8 @@ export {
   getSupplierPart,
   listBom,
   listPartCategories,
+  searchPartCategories,
+  searchStockLocations,
   listPartStock,
   listParts,
   listRecords,
@@ -27,6 +30,7 @@ export {
   selectServer,
   testConnection,
   updateBomItem,
+  updatePart,
   validateBomItem,
 } from "./browser/client";
 

@@ -29,7 +29,7 @@
 
 ## 接口
 
-`list_servers`、`save_server`、`delete_server`、`select_server`、`test_connection`、`login`、`logout`、`current_user`、`list_parts`、`get_part`、`get_part_category`、`get_part_pricing`、`list_bom`、`get_bom_item`、`create_bom_item`、`update_bom_item`、`delete_bom_item`、`validate_bom_item`、`create_bom_substitute`、`delete_bom_substitute`、`list_part_stock`、`list_supplier_parts`、`get_supplier_part`、`list_part_categories`、`list_records`、`load_part_image`、`load_part_thumbnail`。
+`list_servers`、`save_server`、`delete_server`、`select_server`、`test_connection`、`login`、`logout`、`current_user`、`list_parts`、`create_part`、`update_part`、`get_part`、`get_part_category`、`get_part_pricing`、`list_bom`、`get_bom_item`、`create_bom_item`、`update_bom_item`、`delete_bom_item`、`validate_bom_item`、`create_bom_substitute`、`delete_bom_substitute`、`list_part_stock`、`list_supplier_parts`、`get_supplier_part`、`list_part_categories`、`list_records`、`load_part_image`、`load_part_thumbnail`。
 
 错误要带种类，界面据此区分网络失败、401 和 403。证书由浏览器校验，页面无法替用户信任无效证书。
 
