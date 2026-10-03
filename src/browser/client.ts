@@ -836,6 +836,18 @@ function partBody(input: PartWrite) {
     consumable: input.consumable,
     locked: input.locked,
     copy_category_parameters: input.copyCategoryParameters,
+    ...(input.duplicate
+      ? {
+          duplicate: {
+            original: input.duplicate.original,
+            copy_image: input.duplicate.copyImage,
+            copy_bom: input.duplicate.copyBom,
+            copy_notes: input.duplicate.copyNotes,
+            copy_parameters: input.duplicate.copyParameters,
+            copy_tests: input.duplicate.copyTests,
+          },
+        }
+      : {}),
   };
 }
 
@@ -1032,11 +1044,25 @@ export async function createStockItem(id: string, input: StockItemWrite): Promis
     method: "POST",
     json: stockItemBody(input),
   });
-  const pk = idOf(value, "pk");
+  const pk = createdPk(value);
   if (!pk) {
     throw fail("missingData", "新库存项里没有 pk");
   }
   return pk;
+}
+
+function createdPk(value: unknown): number | null {
+  const direct = idOf(value, "pk");
+  if (direct) {
+    return direct;
+  }
+  for (const item of pageItems(value)) {
+    const pk = idOf(item, "pk");
+    if (pk) {
+      return pk;
+    }
+  }
+  return null;
 }
 
 export async function updateStockItem(id: string, pk: number, input: StockItemWrite) {

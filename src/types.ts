@@ -73,6 +73,14 @@ export type PartWrite = {
   consumable: boolean;
   locked: boolean;
   copyCategoryParameters: boolean;
+  duplicate?: {
+    original: number;
+    copyImage: boolean;
+    copyBom: boolean;
+    copyNotes: boolean;
+    copyParameters: boolean;
+    copyTests: boolean;
+  };
 };
 
 export type PartDetail = {

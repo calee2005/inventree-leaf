@@ -175,6 +175,11 @@ export function PartDetailScreen() {
         label: "编辑零件",
         onSelect: () => stackRef.current.push(`/parts/${pk}/edit`),
       },
+      {
+        id: "duplicate-part",
+        label: "复制零件",
+        onSelect: () => stackRef.current.push(`/parts/${pk}/duplicate`),
+      },
     ]);
     return () => setActions([]);
   }, [part, setActions]);

@@ -153,6 +153,14 @@ const signedInChildren = [
     ),
   },
   {
+    path: "/parts/:partId/duplicate",
+    element: (
+      <PageFrame back title="复制零件">
+        <PartFormScreen mode="duplicate" />
+      </PageFrame>
+    ),
+  },
+  {
     path: "/parts/:partId/edit",
     element: (
       <PageFrame back title="编辑零件">

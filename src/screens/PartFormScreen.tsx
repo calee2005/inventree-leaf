@@ -15,7 +15,7 @@ import { CategorySelect } from "../ui/CategorySelect";
 import { LocationSelect } from "../ui/LocationSelect";
 import { TextField } from "../ui/TextField";
 
-type Mode = "create" | "edit";
+type Mode = "create" | "edit" | "duplicate";
 
 const flags: Array<{ key: keyof PartWrite; label: string; hint: string }> = [
   { key: "active", label: "有效", hint: "此零件是否处于有效状态" },
@@ -108,11 +108,11 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
   const [locationHit, setLocationHit] = useState<LookupHit | null>(null);
   const [locked, setLocked] = useState(false);
   const [error, setError] = useState<CommandFailure | null>(null);
-  const [loading, setLoading] = useState(mode === "edit");
+  const [loading, setLoading] = useState(mode !== "create");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (mode !== "edit") {
+    if (mode === "create") {
       return;
     }
     if (!Number.isInteger(partPk) || partPk <= 0) {
@@ -127,8 +127,21 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
         if (!active) {
           return;
         }
-        setDraft(fromDetail(part));
-        setLocked(part.locked);
+        const next = fromDetail(part);
+        if (mode === "duplicate") {
+          next.locked = false;
+          next.copyCategoryParameters = true;
+          next.duplicate = {
+            original: part.pk,
+            copyImage: false,
+            copyBom: false,
+            copyNotes: true,
+            copyParameters: true,
+            copyTests: false,
+          };
+        }
+        setDraft(next);
+        setLocked(mode === "edit" && part.locked);
         setCategory(
           part.categoryId
             ? { pk: part.categoryId, name: part.categoryName, pathstring: part.categoryName }
@@ -162,7 +175,7 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
     setActions([
       {
         id: "save-part",
-        label: saving ? "正在保存…" : mode === "create" ? "创建" : "保存",
+        label: saving ? "正在保存…" : mode === "edit" ? "保存" : "创建",
         onSelect: () => saveRef.current(),
       },
     ]);
@@ -182,7 +195,7 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
       defaultLocation: locationHit?.pk ?? null,
     };
     try {
-      if (mode === "create") {
+      if (mode !== "edit") {
         const pk = await createPart(serverId, input);
         stack.replace(`/parts/${pk}`);
         return;
@@ -268,13 +281,58 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
           onChange={(checked) => patch({ [flag.key]: checked })}
         />
       ))}
-      {mode === "create" ? (
+      {mode !== "edit" ? (
         <CheckField
           label="复制类别参数"
           hint="从所选零件类别复制参数模板"
           checked={draft.copyCategoryParameters}
           onChange={(checked) => patch({ copyCategoryParameters: checked })}
         />
+      ) : null}
+      {draft.duplicate ? (
+        <>
+          <p className="section-label">从原零件复制</p>
+          <CheckField
+            label="复制图片"
+            hint="从原零件复制图片"
+            checked={draft.duplicate.copyImage}
+            onChange={(checked) =>
+              patch({ duplicate: draft.duplicate ? { ...draft.duplicate, copyImage: checked } : undefined })
+            }
+          />
+          <CheckField
+            label="复制物料清单"
+            hint="从原零件复制物料清单"
+            checked={draft.duplicate.copyBom}
+            onChange={(checked) =>
+              patch({ duplicate: draft.duplicate ? { ...draft.duplicate, copyBom: checked } : undefined })
+            }
+          />
+          <CheckField
+            label="复制备注"
+            hint="从原零件复制备注"
+            checked={draft.duplicate.copyNotes}
+            onChange={(checked) =>
+              patch({ duplicate: draft.duplicate ? { ...draft.duplicate, copyNotes: checked } : undefined })
+            }
+          />
+          <CheckField
+            label="复制参数"
+            hint="从原零件复制参数"
+            checked={draft.duplicate.copyParameters}
+            onChange={(checked) =>
+              patch({ duplicate: draft.duplicate ? { ...draft.duplicate, copyParameters: checked } : undefined })
+            }
+          />
+          <CheckField
+            label="复制测试模板"
+            hint="从原零件复制测试模板"
+            checked={draft.duplicate.copyTests}
+            onChange={(checked) =>
+              patch({ duplicate: draft.duplicate ? { ...draft.duplicate, copyTests: checked } : undefined })
+            }
+          />
+        </>
       ) : null}
     </form>
   );
