@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router";
 import { getPart, listPartStock, loadPartImage, loadPartThumbnail, readError } from "../api";
+import { watchPartImage } from "./PartImageScreen";
 import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
@@ -48,6 +49,15 @@ export function PartDetailScreen() {
       setError(readError(reason));
     }
   }
+
+  useEffect(() => {
+    if (!Number.isInteger(partPk) || partPk <= 0) {
+      return;
+    }
+    return watchPartImage(partPk, () => {
+      void getPart(serverId, partPk).then(setPart).catch(() => undefined);
+    });
+  }, [serverId, partPk]);
 
   useEffect(() => {
     if (!Number.isInteger(partPk) || partPk <= 0) {
@@ -180,7 +190,12 @@ export function PartDetailScreen() {
         }}
       >
         <article className="detail-hero">
-          <DetailPhoto serverId={serverId} image={part?.image || ""} thumbnail={thumbnail} />
+          <DetailPhoto
+            serverId={serverId}
+            image={part?.image || ""}
+            thumbnail={thumbnail}
+            onOpen={Number.isInteger(partPk) && partPk > 0 ? () => stack.push(`/parts/${partPk}/image`) : undefined}
+          />
           <DetailHeading title={title} detail={description || undefined} aside={stockLabel || undefined} />
         </article>
         {tab === "detail" ? (
@@ -365,10 +380,12 @@ function DetailPhoto({
   serverId,
   image,
   thumbnail,
+  onOpen,
 }: {
   serverId: string;
   image: string;
   thumbnail: string;
+  onOpen?: () => void;
 }) {
   const [src, setSrc] = useState<string | null>(null);
 
@@ -399,10 +416,14 @@ function DetailPhoto({
     };
   }, [serverId, image, thumbnail]);
 
+  const picture = src ? <img alt="" src={src} /> : <PhotoIcon />;
+  if (!onOpen) {
+    return <div className="detail-photo">{picture}</div>;
+  }
   return (
-    <div className="detail-photo">
-      {src ? <img alt="" src={src} /> : <PhotoIcon />}
-    </div>
+    <button className="detail-photo" type="button" aria-label="零件图片" onClick={onOpen}>
+      {picture}
+    </button>
   );
 }
 

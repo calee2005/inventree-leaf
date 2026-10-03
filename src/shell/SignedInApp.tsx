@@ -4,6 +4,7 @@ import { RouterProvider } from "react-router/dom";
 import { BomCreateScreen, BomLineScreen, BomListScreen } from "../screens/BomScreen";
 import { CategoryScreen } from "../screens/CategoryScreen";
 import { PartDetailScreen } from "../screens/PartDetailScreen";
+import { PartImageScreen } from "../screens/PartImageScreen";
 import { PartFormScreen } from "../screens/PartFormScreen";
 import { PartPricingScreen } from "../screens/PartPricingScreen";
 import { PurchaseOrderDetailScreen } from "../screens/PurchaseOrderScreen";
@@ -129,6 +130,14 @@ const signedInChildren = [
     element: (
       <PageFrame back title="新零件">
         <PartFormScreen mode="create" />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/parts/:partId/image",
+    element: (
+      <PageFrame back title="零件图片">
+        <PartImageScreen />
       </PageFrame>
     ),
   },

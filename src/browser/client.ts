@@ -175,7 +175,7 @@ function withQuery(url: string, pairs: Array<[string, string]>): string {
 
 async function request(
   url: string,
-  init: { token?: string; basic?: string; method?: string; json?: unknown } = {},
+  init: { token?: string; basic?: string; method?: string; json?: unknown; form?: FormData } = {},
 ): Promise<unknown> {
   const headers = new Headers({ Accept: "application/json" });
   if (init.token) {
@@ -190,9 +190,9 @@ async function request(
   let response: Response;
   try {
     response = await fetch(url, {
-      method: init.method ?? (init.json !== undefined ? "POST" : "GET"),
+      method: init.method ?? (init.json !== undefined || init.form ? "POST" : "GET"),
       headers,
-      body: init.json !== undefined ? JSON.stringify(init.json) : undefined,
+      body: init.form ?? (init.json !== undefined ? JSON.stringify(init.json) : undefined),
     });
   } catch {
     throw fail("network", "网络错误");
@@ -262,7 +262,7 @@ function collectMessages(value: unknown, lines: string[]) {
   }
 }
 
-async function authed(id: string, url: string, init: { method?: string; json?: unknown } = {}) {
+async function authed(id: string, url: string, init: { method?: string; json?: unknown; form?: FormData } = {}) {
   const token = tokenFor(id);
   try {
     return await request(url, { ...init, token });
@@ -841,6 +841,28 @@ export async function createPart(id: string, input: PartWrite): Promise<number> 
     throw fail("missingData", "新零件里没有 pk");
   }
   return pk;
+}
+
+export async function uploadPartImage(id: string, pk: number, file: Blob, filename: string) {
+  if (pk <= 0) {
+    throw fail("invalid", "零件不存在");
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw fail("invalid", "图片太大");
+  }
+  const form = new FormData();
+  form.append("image", file, filename);
+  await authed(id, apiUrl(requireServer(id).server, `api/part/${pk}/`), { method: "PATCH", form });
+}
+
+export async function clearPartImage(id: string, pk: number) {
+  if (pk <= 0) {
+    throw fail("invalid", "零件不存在");
+  }
+  await authed(id, apiUrl(requireServer(id).server, `api/part/${pk}/`), {
+    method: "PATCH",
+    json: { image: null },
+  });
 }
 
 export async function updatePart(id: string, pk: number, input: PartWrite) {
