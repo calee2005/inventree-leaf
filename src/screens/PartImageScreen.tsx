@@ -127,17 +127,8 @@ export function PartImageScreen() {
       return;
     }
     if (picked) {
-      const file = picked;
-      setActions([
-        { id: "crop-image", label: "裁剪", onSelect: () => setCropping(true) },
-        {
-          id: "use-original",
-          label: "使用原始文件",
-          onSelect: () => sendRef.current(file, file.name || "part-image"),
-        },
-        { id: "cancel-image", label: "取消", onSelect: () => setPicked(null) },
-      ]);
-      return () => setActions([]);
+      setActions([]);
+      return;
     }
     const next = [
       {
@@ -198,7 +189,21 @@ export function PartImageScreen() {
       {picked && !cropping ? (
         <div className="image-choice" onClick={(event) => event.stopPropagation()}>
           <strong>裁剪图片</strong>
-          <p>您想要在上传前裁剪此图像吗？请从行动菜单选择。</p>
+          <p>您想要在上传前裁剪此图像吗？</p>
+          <button className="form-primary" type="button" disabled={busy} onClick={() => setCropping(true)}>
+            裁剪
+          </button>
+          <button
+            className="form-primary is-quiet"
+            type="button"
+            disabled={busy}
+            onClick={() => void send(picked, picked.name || "part-image")}
+          >
+            使用原始文件
+          </button>
+          <button className="form-danger" type="button" disabled={busy} onClick={() => setPicked(null)}>
+            取消
+          </button>
         </div>
       ) : null}
     </div>

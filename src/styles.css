@@ -733,12 +733,12 @@ button.brand-logo-button {
     calc(16px + env(safe-area-inset-left, 0px));
 }
 
-.page-frame:has(.action-dock) {
+.page-frame.has-actions {
   --action-clearance: calc(78px + env(safe-area-inset-bottom, 0px));
 }
 
-.page-frame:has(.action-dock) .pull-scroller,
-.page-frame:has(.action-dock) .app-body:not(:has(.pull-scroller)) {
+.page-frame.has-actions .pull-scroller,
+.page-frame.has-actions .app-body:not(:has(.pull-scroller)) {
   padding-bottom: var(--action-clearance);
 }
 
@@ -1068,11 +1068,11 @@ button.brand-logo-button {
 }
 
 .action-dock {
-  position: absolute;
+  position: fixed;
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 3;
+  z-index: 2000;
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -1557,7 +1557,7 @@ button.brand-logo-button {
 .image-choice {
   position: fixed;
   right: 16px;
-  bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   left: 16px;
   z-index: 30;
   display: flex;

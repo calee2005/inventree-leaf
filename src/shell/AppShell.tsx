@@ -234,8 +234,47 @@ export function AppShell({ serverId, user, views, onLoggedOut, onLeave }: Props)
             <AppVersion />
           </div>
         ) : null}
+        {actions.length > 0 ? (
+          <div className="action-dock">
+            {panel === "actions" ? (
+              <div className="popover action-menu" onClick={(event) => event.stopPropagation()}>
+                {actions.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={() => {
+                      setPanel(null);
+                      action.onSelect();
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <button
+              className="action-fab"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setPanel(panel === "actions" ? null : "actions");
+              }}
+            >
+              <HandIcon />
+              行动
+            </button>
+          </div>
+        ) : null}
       </div>
       </ActionRegistryContext.Provider>
     </ShellContext.Provider>
+  );
+}
+
+function HandIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M8.8 11.2V6.2a1.2 1.2 0 0 1 2.4 0v4.4h.6V4.6a1.2 1.2 0 0 1 2.4 0v6h.6V7.1a1.2 1.2 0 0 1 2.4 0V14c0 3.2-2.1 5.6-5.2 5.6h-1.4c-2.2 0-4-1.1-4.9-2.8l-1.6-2.6a1.3 1.3 0 0 1 2.2-1.4l2.5 2.8V11.2z" />
+    </svg>
   );
 }
