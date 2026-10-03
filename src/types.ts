@@ -297,6 +297,60 @@ export type PurchaseOrderExtraLine = {
   price: string;
 };
 
+export type SalesOrderSummary = {
+  pk: number;
+  reference: string;
+  description: string;
+  statusText: string;
+  customerName: string;
+  thumbnail: string;
+};
+
+export type SalesOrderDetail = {
+  pk: number;
+  reference: string;
+  description: string;
+  statusText: string;
+  customerId: number | null;
+  customerName: string;
+  customerReference: string;
+  totalPrice: string;
+  currency: string;
+  issueDate: string;
+  startDate: string;
+  targetDate: string;
+  shipmentDate: string;
+  lineCount: number;
+  completedLines: number;
+  shipmentCount: number;
+  completedShipments: number;
+  notes: string;
+  link: string;
+};
+
+export type SalesOrderLine = {
+  pk: number;
+  partId: number | null;
+  partName: string;
+  thumbnail: string;
+  quantity: number;
+  shipped: number;
+  price: string;
+};
+
+export type SalesOrderShipment = {
+  pk: number;
+  reference: string;
+  trackingNumber: string;
+  invoiceNumber: string;
+  shipmentDate: string;
+  deliveryDate: string;
+  checked: boolean;
+  notes: string;
+  link: string;
+  orderId: number | null;
+};
+
 export type PartPriceDetail = {
   currency: string;
   priceRange: string;

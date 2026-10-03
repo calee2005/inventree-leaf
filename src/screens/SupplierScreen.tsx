@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "re
 import { useParams } from "react-router";
 import {
   countOutstandingPurchaseOrders,
+  countOutstandingSalesOrders,
   getCompany,
   getManufacturerPart,
   listCompanies,
@@ -116,6 +117,7 @@ export function CompanyDetailScreen() {
   const invalid = !Number.isInteger(companyId) || companyId <= 0;
   const [company, setCompany] = useState<CompanyDetail | null>(null);
   const [outstanding, setOutstanding] = useState(0);
+  const [outstandingSales, setOutstandingSales] = useState(0);
   const [error, setError] = useState<CommandFailure | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -127,12 +129,14 @@ export function CompanyDetailScreen() {
     }
     setError(null);
     try {
-      const [next, orders] = await Promise.all([
+      const [next, orders, sales] = await Promise.all([
         getCompany(serverId, companyId),
         countOutstandingPurchaseOrders(serverId, companyId).catch(() => 0),
+        countOutstandingSalesOrders(serverId, companyId).catch(() => 0),
       ]);
       setCompany(next);
       setOutstanding(next.isSupplier ? orders : 0);
+      setOutstandingSales(next.isCustomer ? sales : 0);
     } catch (reason: unknown) {
       setCompany(null);
       setError(readError(reason));
@@ -194,6 +198,13 @@ export function CompanyDetailScreen() {
                   title="采购订单"
                   aside={String(outstanding)}
                   onClick={() => stack.push(`/supplier/${company.pk}/orders`)}
+                />
+              ) : null}
+              {company.isCustomer ? (
+                <DetailRow
+                  title="销售订单"
+                  aside={String(outstandingSales)}
+                  onClick={() => stack.push(`/customer/${company.pk}/orders`)}
                 />
               ) : null}
               {company.isManufacturer && company.partsManufactured > 0 ? (

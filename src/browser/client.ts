@@ -8,6 +8,10 @@ import type {
   PurchaseOrderExtraLine,
   PurchaseOrderLine,
   PurchaseOrderSummary,
+  SalesOrderDetail,
+  SalesOrderLine,
+  SalesOrderShipment,
+  SalesOrderSummary,
   BomItemWrite,
   BomLine,
   BomPage,
@@ -1471,7 +1475,7 @@ function addressLine(value: unknown): string {
 export async function listCompanies(
   id: string,
   offset: number,
-  filter: { supplier?: boolean; search?: string },
+  filter: { supplier?: boolean; customer?: boolean; search?: string },
 ): Promise<CompanyPage> {
   const pairs: Array<[string, string]> = [
     ["limit", String(PAGE_LIMIT)],
@@ -1480,6 +1484,9 @@ export async function listCompanies(
   ];
   if (filter.supplier) {
     pairs.push(["is_supplier", "true"]);
+  }
+  if (filter.customer) {
+    pairs.push(["is_customer", "true"]);
   }
   if (filter.search?.trim()) {
     pairs.push(["search", filter.search.trim()]);
@@ -1719,6 +1726,192 @@ export async function listPurchaseOrderLines(
     return [line];
   });
   return { count: pageCount(value, results), results };
+}
+
+export async function countOutstandingSalesOrders(id: string, customer: number): Promise<number> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/order/so/"), [
+      ["limit", "1"],
+      ["offset", "0"],
+      ["customer", String(customer)],
+      ["outstanding", "true"],
+    ]),
+  );
+  return pageCount(value, pageItems(value));
+}
+
+export async function listSalesOrders(
+  id: string,
+  customer: number | null,
+  search: string,
+  offset: number,
+): Promise<{ count: number; results: SalesOrderSummary[] }> {
+  const pairs: Array<[string, string]> = [
+    ["limit", String(PAGE_LIMIT)],
+    ["offset", String(offset)],
+    ["customer_detail", "true"],
+    ["ordering", "-creation_date"],
+  ];
+  if (customer) {
+    pairs.push(["customer", String(customer)]);
+  }
+  if (search.trim()) {
+    pairs.push(["search", search.trim()]);
+  }
+  const value = await authed(id, withQuery(apiUrl(requireServer(id).server, "api/order/so/"), pairs));
+  const results = pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const summary: SalesOrderSummary = {
+      pk,
+      reference: text(item, "reference"),
+      description: text(item, "description"),
+      statusText: text(item, "status_text"),
+      customerName: nested(item, "customer_detail", "name"),
+      thumbnail: nested(item, "customer_detail", "thumbnail") || nested(item, "customer_detail", "image"),
+    };
+    return [summary];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function getSalesOrder(id: string, pk: number): Promise<SalesOrderDetail> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, `api/order/so/${pk}/`), [["customer_detail", "true"]]),
+  );
+  const found = idOf(value, "pk");
+  if (!found) {
+    throw fail("missingData", "销售订单里没有 pk");
+  }
+  return {
+    pk: found,
+    reference: text(value, "reference"),
+    description: text(value, "description"),
+    statusText: text(value, "status_text"),
+    customerId: idOf(value, "customer"),
+    customerName: nested(value, "customer_detail", "name"),
+    customerReference: text(value, "customer_reference"),
+    totalPrice: trimDecimal(text(value, "total_price")),
+    currency: text(value, "order_currency") || nested(value, "customer_detail", "currency"),
+    issueDate: text(value, "issue_date"),
+    startDate: text(value, "start_date"),
+    targetDate: text(value, "target_date"),
+    shipmentDate: text(value, "shipment_date"),
+    lineCount: num(value, "line_items"),
+    completedLines: num(value, "completed_lines"),
+    shipmentCount: num(value, "shipments_count"),
+    completedShipments: num(value, "completed_shipments_count"),
+    notes: text(value, "notes").trim(),
+    link: text(value, "link"),
+  };
+}
+
+export async function listSalesOrderLines(
+  id: string,
+  order: number,
+  offset: number,
+): Promise<{ count: number; results: SalesOrderLine[] }> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/order/so-line/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", String(offset)],
+      ["order", String(order)],
+      ["part_detail", "true"],
+    ]),
+  );
+  const results = pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const currency = text(item, "sale_price_currency");
+    const price = trimDecimal(text(item, "sale_price"));
+    const line: SalesOrderLine = {
+      pk,
+      partId: idOf(item, "part"),
+      partName: firstText([nested(item, "part_detail", "full_name"), nested(item, "part_detail", "name")]),
+      thumbnail: nested(item, "part_detail", "thumbnail"),
+      quantity: num(item, "quantity"),
+      shipped: num(item, "shipped"),
+      price: price ? (currency ? `${price} ${currency}` : price) : "",
+    };
+    return [line];
+  });
+  return { count: pageCount(value, results), results };
+}
+
+export async function listSalesOrderExtraLines(id: string, order: number): Promise<PurchaseOrderExtraLine[]> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/order/so-extra-line/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", "0"],
+      ["order", String(order)],
+    ]),
+  );
+  return pageItems(value).flatMap((item) => {
+    const pk = idOf(item, "pk");
+    if (!pk) {
+      return [];
+    }
+    const currency = text(item, "price_currency");
+    const price = trimDecimal(text(item, "price"));
+    return [
+      {
+        pk,
+        description: text(item, "description"),
+        price: price ? (currency ? `${price} ${currency}` : price) : "",
+      },
+    ];
+  });
+}
+
+export async function listSalesOrderShipments(id: string, order: number): Promise<SalesOrderShipment[]> {
+  const value = await authed(
+    id,
+    withQuery(apiUrl(requireServer(id).server, "api/order/so/shipment/"), [
+      ["limit", String(PAGE_LIMIT)],
+      ["offset", "0"],
+      ["order", String(order)],
+    ]),
+  );
+  return pageItems(value).flatMap((item) => {
+    const parsed = parseShipment(item);
+    return parsed ? [parsed] : [];
+  });
+}
+
+export async function getSalesOrderShipment(id: string, pk: number): Promise<SalesOrderShipment> {
+  const value = await authed(id, apiUrl(requireServer(id).server, `api/order/so/shipment/${pk}/`));
+  const parsed = parseShipment(value);
+  if (!parsed) {
+    throw fail("missingData", "配送里没有 pk");
+  }
+  return parsed;
+}
+
+function parseShipment(value: unknown): SalesOrderShipment | null {
+  const pk = idOf(value, "pk");
+  if (!pk) {
+    return null;
+  }
+  return {
+    pk,
+    reference: text(value, "reference"),
+    trackingNumber: text(value, "tracking_number"),
+    invoiceNumber: text(value, "invoice_number"),
+    shipmentDate: text(value, "shipment_date"),
+    deliveryDate: text(value, "delivery_date"),
+    checked: idOf(value, "checked_by") !== null,
+    notes: text(value, "notes").trim(),
+    link: text(value, "link"),
+    orderId: idOf(value, "order"),
+  };
 }
 
 export async function listPurchaseOrderExtraLines(

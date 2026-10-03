@@ -7,7 +7,14 @@ import { PartDetailScreen } from "../screens/PartDetailScreen";
 import { PartImageScreen } from "../screens/PartImageScreen";
 import { PartFormScreen } from "../screens/PartFormScreen";
 import { PartPricingScreen } from "../screens/PartPricingScreen";
+import { CustomerListScreen } from "../screens/CustomerScreen";
 import { PurchaseOrderDetailScreen } from "../screens/PurchaseOrderScreen";
+import {
+  SalesOrderDetailScreen,
+  SalesOrderListScreen,
+  SalesShipmentListScreen,
+  SalesShipmentScreen,
+} from "../screens/SalesOrderScreen";
 import { SupplierPartDetailScreen, SupplierPartListScreen, SupplierPartStockScreen } from "../screens/SupplierPartScreen";
 import {
   CompanyDetailScreen,
@@ -38,11 +45,9 @@ const signedInViews: ShellView[] = [
 ];
 
 const recordViews: Record<string, { kind: string; emptyText: string }> = {
-  customer: { kind: "customer", emptyText: "这里还没有客户。" },
   build: { kind: "build", emptyText: "这里还没有生产订单。" },
   transfer: { kind: "transfer", emptyText: "这里还没有调拨单。" },
   purchase: { kind: "purchase", emptyText: "这里还没有采购订单。" },
-  sales: { kind: "sales", emptyText: "这里还没有销售订单。" },
 };
 
 type Props = {
@@ -210,6 +215,62 @@ const signedInChildren = [
     element: (
       <PageFrame>
         <StockLocationScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/customer",
+    element: (
+      <PageFrame>
+        <CustomerListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/customer/:companyId/orders",
+    element: (
+      <PageFrame back title="销售订单">
+        <SalesOrderListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/customer/:companyId",
+    element: (
+      <PageFrame back title="公司">
+        <CompanyDetailScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/sales/shipment/:shipmentId",
+    element: (
+      <PageFrame back title="配送">
+        <SalesShipmentScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/sales/:orderId/shipments",
+    element: (
+      <PageFrame back title="配送">
+        <SalesShipmentListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/sales/:orderId",
+    element: (
+      <PageFrame back title="销售订单">
+        <SalesOrderDetailScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/sales",
+    element: (
+      <PageFrame>
+        <SalesOrderListScreen />
       </PageFrame>
     ),
   },
