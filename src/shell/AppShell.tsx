@@ -1,7 +1,8 @@
-import { useEffect, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useLocation } from "react-router";
 import { currentUser, listServers, logout, readError } from "../api";
-import { Notice } from "../Notice";
 import type { CommandFailure, ServerView, SessionUser } from "../types";
+import { usePageStack } from "./pageStack";
 
 export type ShellAction = {
   id: string;
@@ -13,41 +14,73 @@ export type ShellPanel = "views" | "server" | "actions" | "filter" | null;
 
 export type ShellView = {
   id: string;
+  path: string;
   title: string;
   color: string;
 };
+
+type ShellApi = {
+  serverId: string;
+  panel: ShellPanel;
+  setPanel: (panel: ShellPanel) => void;
+  actions: ShellAction[];
+  setActions: (actions: ShellAction[]) => void;
+  error: CommandFailure | null;
+  views: ShellView[];
+  active: ShellView;
+  accountLabel: string;
+};
+
+const ShellContext = createContext<ShellApi | null>(null);
+
+export function useShell() {
+  const value = useContext(ShellContext);
+  if (!value) {
+    throw new Error("页面需要放在应用框架里");
+  }
+  return value;
+}
 
 type Props = {
   serverId: string;
   user: SessionUser | null;
   views: ShellView[];
-  activeViewId: string;
-  onChangeView: (id: string) => void;
   onLoggedOut: () => void;
   onLeave: () => void;
-  children: (shell: {
-    panel: ShellPanel;
-    setPanel: (panel: ShellPanel) => void;
-    setActions: (actions: ShellAction[]) => void;
-  }) => ReactNode;
+  children: ReactNode;
 };
 
-export function AppShell({
-  serverId,
-  user,
-  views,
-  activeViewId,
-  onChangeView,
-  onLoggedOut,
-  onLeave,
-  children,
-}: Props) {
+function viewForPath(pathname: string, views: ShellView[]) {
+  return (
+    views.find((view) => pathname === view.path || pathname.startsWith(`${view.path}/`)) ?? views[0]
+  );
+}
+
+export function AppShell({ serverId, user, views, onLoggedOut, onLeave, children }: Props) {
+  const location = useLocation();
+  const stack = usePageStack();
   const [server, setServer] = useState<ServerView | null>(null);
   const [sessionName, setSessionName] = useState(user?.username ?? "");
   const [panel, setPanel] = useState<ShellPanel>(null);
   const [actions, setActions] = useState<ShellAction[]>([]);
   const [error, setError] = useState<CommandFailure | null>(null);
-  const active = views.find((view) => view.id === activeViewId) ?? views[0];
+  const active = viewForPath(location.pathname, views);
+  const where = server?.name || "服务器";
+  const accountLabel = sessionName ? `${sessionName}@${where}` : where;
+  const shell = useMemo<ShellApi>(
+    () => ({
+      serverId,
+      panel,
+      setPanel,
+      actions,
+      setActions,
+      error,
+      views,
+      active,
+      accountLabel,
+    }),
+    [serverId, panel, actions, error, views, active, accountLabel],
+  );
 
   useEffect(() => {
     let activeRequest = true;
@@ -98,12 +131,9 @@ export function AppShell({
     };
   }, [server, serverId, sessionName]);
 
-  function toggle(next: ShellPanel) {
-    return (event: MouseEvent) => {
-      event.stopPropagation();
-      setPanel((current) => (current === next ? null : next));
-    };
-  }
+  useEffect(() => {
+    setPanel(null);
+  }, [location.key]);
 
   async function onLogout() {
     setPanel(null);
@@ -116,128 +146,52 @@ export function AppShell({
     }
   }
 
-  const where = server?.name || "服务器";
-  const accountLabel = sessionName ? `${sessionName}@${where}` : where;
-
   return (
-    <div className="app-frame" onClick={() => setPanel(null)}>
-      <header className="app-bar">
-        <div
-          className="app-bar-start"
-          style={{ "--view-color": active?.color ?? "#2f78f6" } as CSSProperties}
-        >
-          <button
-            className="view-switch"
-            type="button"
-            aria-label="切换视图"
-            onClick={toggle("views")}
-          >
-            <span className="view-title">{active?.title ?? "零件"}</span>
-          </button>
-        </div>
-        <AppLogo />
-        <button className="server-button" type="button" onClick={toggle("server")}>
-          <span className="server-label">
-            {accountLabel}
-          </span>
-          <span className="server-glyph">
-            <ServerIcon />
-            <span className="status-dot" />
-          </span>
-        </button>
-      </header>
-      {panel === "views" ? (
-        <div className="view-overlay" onClick={(event) => event.stopPropagation()}>
-          {views
-            .filter((view) => view.id !== activeViewId)
-            .map((view) => (
-              <button
-                key={view.id}
-                type="button"
-                style={{ "--view-color": view.color } as CSSProperties}
-                onClick={() => {
-                  onChangeView(view.id);
-                  setPanel(null);
-                }}
-              >
-                {view.title}
-              </button>
-            ))}
-        </div>
-      ) : null}
-      {panel === "server" ? (
-        <div className="popover server-menu" onClick={(event) => event.stopPropagation()}>
-          <div className="server-summary">
-            <strong>{accountLabel}</strong>
-            <span>{sessionName || "已登录"}</span>
-            <span className="connected">已连接</span>
-            {server ? <small>{server.server}</small> : null}
-          </div>
-          <button type="button" onClick={() => void onLogout()}>
-            退出登录
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setPanel(null);
-              onLeave();
-            }}
-          >
-            返回服务器列表
-          </button>
-        </div>
-      ) : null}
-      <div className="app-body">
-        <Notice error={error} />
-        {children({ panel, setPanel, setActions })}
-      </div>
-      {actions.length > 0 ? (
-        <div className="action-dock">
-          {panel === "actions" ? (
-            <div className="popover action-menu" onClick={(event) => event.stopPropagation()}>
-              {actions.map((action) => (
+    <ShellContext.Provider value={shell}>
+      <div className="app-frame" onClick={() => setPanel(null)}>
+        <div className="page-stack">{children}</div>
+        {panel === "views" ? (
+          <div className="view-overlay" onClick={(event) => event.stopPropagation()}>
+            {views
+              .filter((view) => view.id !== active.id)
+              .map((view) => (
                 <button
-                  key={action.id}
+                  key={view.id}
                   type="button"
+                  style={{ "--view-color": view.color } as CSSProperties}
                   onClick={() => {
+                    stack.replace(view.path);
                     setPanel(null);
-                    action.onSelect();
                   }}
                 >
-                  {action.label}
+                  {view.title}
                 </button>
               ))}
+          </div>
+        ) : null}
+        {panel === "server" ? (
+          <div className="popover server-menu" onClick={(event) => event.stopPropagation()}>
+            <div className="server-summary">
+              <strong>{accountLabel}</strong>
+              <span>{sessionName || "已登录"}</span>
+              <span className="connected">已连接</span>
+              {server ? <small>{server.server}</small> : null}
             </div>
-          ) : null}
-          <button className="action-fab" type="button" onClick={toggle("actions")}>
-            <HandIcon />
-            行动
-          </button>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function AppLogo() {
-  return <img className="app-mark" src="/logo.png" alt="" />;
-}
-
-function ServerIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="3.5" y="4" width="17" height="6" rx="1.5" />
-      <rect x="3.5" y="14" width="17" height="6" rx="1.5" />
-      <circle cx="7" cy="7" r="0.9" />
-      <circle cx="7" cy="17" r="0.9" />
-    </svg>
-  );
-}
-
-function HandIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8.8 11.2V6.2a1.2 1.2 0 0 1 2.4 0v4.4h.6V4.6a1.2 1.2 0 0 1 2.4 0v6h.6V7.1a1.2 1.2 0 0 1 2.4 0V14c0 3.2-2.1 5.6-5.2 5.6h-1.4c-2.2 0-4-1.1-4.9-2.8l-1.6-2.6a1.3 1.3 0 0 1 2.2-1.4l2.5 2.8V11.2z" />
-    </svg>
+            <button type="button" onClick={() => void onLogout()}>
+              退出登录
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPanel(null);
+                onLeave();
+              }}
+            >
+              返回服务器列表
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </ShellContext.Provider>
   );
 }

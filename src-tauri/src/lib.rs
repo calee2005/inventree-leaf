@@ -16,6 +16,8 @@ pub fn run() {
             commands::logout,
             commands::current_user,
             commands::list_parts,
+            commands::get_part,
+            commands::list_part_stock,
             commands::list_part_categories,
             commands::list_records,
             commands::load_part_thumbnail,

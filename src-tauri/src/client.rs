@@ -137,6 +137,83 @@ pub struct RecordPage {
     pub results: Vec<RecordSummary>,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartParameter {
+    pub name: String,
+    pub value: String,
+    pub units: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartDetail {
+    pub pk: i64,
+    pub name: String,
+    pub full_name: String,
+    pub description: String,
+    pub thumbnail: String,
+    pub units: String,
+    pub active: bool,
+    pub assembly: bool,
+    pub component: bool,
+    pub purchaseable: bool,
+    pub salable: bool,
+    pub in_stock: f64,
+    pub category_name: String,
+    pub location: String,
+    pub keywords: String,
+    pub link: String,
+    pub notes: String,
+    pub template_pk: Option<i64>,
+    pub template_name: String,
+    pub template_thumbnail: String,
+    pub variant_count: i64,
+    pub bom_count: i64,
+    pub used_in_count: i64,
+    pub supplier_count: i64,
+    pub attachment_count: i64,
+    pub building: f64,
+    pub scheduled_to_build: f64,
+    pub can_build: Option<f64>,
+    pub allocated_to_build: f64,
+    pub required_for_build: f64,
+    pub allocated_to_sales: f64,
+    pub required_for_sales: f64,
+    pub ordering: f64,
+    pub price_label: Option<String>,
+    pub parameters: Vec<PartParameter>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PartRequirements {
+    pub building: f64,
+    pub scheduled_to_build: f64,
+    pub can_build: f64,
+    pub ordering: f64,
+    pub allocated_to_build: f64,
+    pub required_for_build: f64,
+    pub allocated_to_sales: f64,
+    pub required_for_sales: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartStockItem {
+    pub pk: i64,
+    pub part_name: String,
+    pub location: String,
+    pub quantity: String,
+    pub thumbnail: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PartStockPage {
+    pub count: i64,
+    pub results: Vec<PartStockItem>,
+}
+
 pub const MAX_THUMBNAIL_BYTES: usize = 2 * 1024 * 1024;
 
 pub fn normalize_base(input: &str) -> Result<String, ClientError> {
@@ -312,10 +389,231 @@ fn parse_part(value: &Value) -> Option<PartSummary> {
         name: string_field(value, "name"),
         ipn: string_field(value, "IPN"),
         description: string_field(value, "description"),
-        in_stock: value.get("in_stock").and_then(Value::as_f64).unwrap_or(0.0),
+        in_stock: number_field(value, "in_stock"),
         units: string_field(value, "units"),
         thumbnail: string_field(value, "thumbnail"),
     })
+}
+
+pub fn parse_part_detail(body: &str) -> Result<PartDetail, ClientError> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| ClientError::MissingData("零件详情不是 JSON".into()))?;
+    let pk = value
+        .get("pk")
+        .and_then(json_i64)
+        .ok_or_else(|| ClientError::MissingData("零件详情里没有 pk".into()))?;
+    let name = string_field(&value, "name");
+    let full_name = {
+        let full = string_field(&value, "full_name");
+        if full.trim().is_empty() { name.clone() } else { full }
+    };
+    let category_name = {
+        let direct = string_field(&value, "category_name");
+        if direct.trim().is_empty() {
+            nested_text(&value, "category_detail", "name")
+        } else {
+            direct
+        }
+    };
+    let location = {
+        let path = nested_text(&value, "default_location_detail", "pathstring");
+        if path.trim().is_empty() {
+            nested_text(&value, "default_location_detail", "name")
+        } else {
+            path
+        }
+    };
+    Ok(PartDetail {
+        pk,
+        name,
+        full_name,
+        description: string_field(&value, "description"),
+        thumbnail: string_field(&value, "thumbnail"),
+        units: string_field(&value, "units"),
+        active: bool_field(&value, "active", true),
+        assembly: bool_field(&value, "assembly", false),
+        component: bool_field(&value, "component", false),
+        purchaseable: bool_field(&value, "purchaseable", false),
+        salable: bool_field(&value, "salable", false),
+        in_stock: number_field(&value, "in_stock"),
+        category_name,
+        location,
+        keywords: string_field(&value, "keywords"),
+        link: string_field(&value, "link"),
+        notes: string_field(&value, "notes"),
+        template_pk: optional_id(&value, "variant_of"),
+        template_name: String::new(),
+        template_thumbnail: String::new(),
+        variant_count: 0,
+        bom_count: 0,
+        used_in_count: 0,
+        supplier_count: 0,
+        attachment_count: 0,
+        building: number_field(&value, "building"),
+        scheduled_to_build: number_field(&value, "scheduled_to_build"),
+        can_build: None,
+        allocated_to_build: number_field(&value, "allocated_to_build_orders"),
+        required_for_build: number_field(&value, "required_for_build_orders"),
+        allocated_to_sales: number_field(&value, "allocated_to_sales_orders"),
+        required_for_sales: number_field(&value, "required_for_sales_orders"),
+        ordering: number_field(&value, "ordering"),
+        price_label: None,
+        parameters: parse_parameters(&value),
+    })
+}
+
+fn parse_parameters(value: &Value) -> Vec<PartParameter> {
+    value
+        .get("parameters")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    let name = nested_text(item, "template_detail", "name");
+                    if name.trim().is_empty() {
+                        return None;
+                    }
+                    Some(PartParameter {
+                        name,
+                        value: string_field(item, "data"),
+                        units: nested_text(item, "template_detail", "units"),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+pub fn parse_part_requirements(body: &str) -> Option<PartRequirements> {
+    let value: Value = serde_json::from_str(body).ok()?;
+    if !value.is_object() {
+        return None;
+    }
+    Some(PartRequirements {
+        building: number_field(&value, "building"),
+        scheduled_to_build: number_field(&value, "scheduled_to_build"),
+        can_build: number_field(&value, "can_build"),
+        ordering: number_field(&value, "ordering"),
+        allocated_to_build: number_field(&value, "allocated_to_build_orders"),
+        required_for_build: number_field(&value, "required_for_build_orders"),
+        allocated_to_sales: number_field(&value, "allocated_to_sales_orders"),
+        required_for_sales: number_field(&value, "required_for_sales_orders"),
+    })
+}
+
+pub fn parse_price_label(body: &str) -> Option<String> {
+    let value: Value = serde_json::from_str(body).ok()?;
+    if !value.is_object() {
+        return None;
+    }
+    Some(format_price_range(
+        &decimal_text(&value, "overall_min"),
+        &decimal_text(&value, "overall_max"),
+        string_field(&value, "currency").trim(),
+    ))
+}
+
+pub fn parse_list_count(body: &str) -> i64 {
+    let Ok(value) = serde_json::from_str::<Value>(body) else {
+        return 0;
+    };
+    if let Some(count) = value.get("count").and_then(json_i64) {
+        return count;
+    }
+    value.as_array().map(|items| items.len() as i64).unwrap_or(0)
+}
+
+pub fn parse_part_stock_page(body: &str) -> Result<PartStockPage, ClientError> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| ClientError::MissingData("库存列表不是 JSON".into()))?;
+    if let Some(items) = value.as_array() {
+        let results = parse_stock_rows(items);
+        return Ok(PartStockPage {
+            count: results.len() as i64,
+            results,
+        });
+    }
+    let results = value
+        .get("results")
+        .and_then(Value::as_array)
+        .map(|items| parse_stock_rows(items))
+        .unwrap_or_default();
+    let count = value
+        .get("count")
+        .and_then(json_i64)
+        .unwrap_or(results.len() as i64);
+    Ok(PartStockPage { count, results })
+}
+
+fn parse_stock_rows(items: &[Value]) -> Vec<PartStockItem> {
+    items.iter().filter_map(parse_stock_item).collect()
+}
+
+fn parse_stock_item(value: &Value) -> Option<PartStockItem> {
+    let pk = value.get("pk").and_then(json_i64)?;
+    let location = {
+        let path = nested_text(value, "location_detail", "pathstring");
+        if path.trim().is_empty() {
+            nested_text(value, "location_detail", "name")
+        } else {
+            path
+        }
+    };
+    Some(PartStockItem {
+        pk,
+        part_name: first_text(&[
+            nested_text(value, "part_detail", "full_name"),
+            nested_text(value, "part_detail", "name"),
+        ]),
+        location,
+        quantity: stock_trailing(value),
+        thumbnail: nested_text(value, "part_detail", "thumbnail"),
+    })
+}
+
+fn format_price_range(min: &str, max: &str, currency: &str) -> String {
+    let min = min.trim();
+    let max = max.trim();
+    let amount = if min.is_empty() && max.is_empty() {
+        String::new()
+    } else if min.is_empty() || max.is_empty() || min == max {
+        if min.is_empty() { max } else { min }.to_string()
+    } else {
+        format!("{min} – {max}")
+    };
+    if amount.is_empty() {
+        return String::new();
+    }
+    if currency.is_empty() {
+        amount
+    } else {
+        format!("{currency} {amount}")
+    }
+}
+
+fn decimal_text(value: &Value, key: &str) -> String {
+    match value.get(key) {
+        Some(Value::String(text)) => trim_decimal(text),
+        Some(Value::Number(number)) => trim_decimal(&number.to_string()),
+        _ => String::new(),
+    }
+}
+
+fn trim_decimal(raw: &str) -> String {
+    let text = raw.trim();
+    if text.is_empty() {
+        return String::new();
+    }
+    if !text.contains('.') {
+        return text.to_string();
+    }
+    let trimmed = text.trim_end_matches('0').trim_end_matches('.');
+    if trimmed.is_empty() || trimmed == "-" {
+        "0".into()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 pub fn parse_category_page(body: &str) -> Result<CategoryPage, ClientError> {
@@ -381,6 +679,72 @@ pub fn part_list_url(
         pairs.push(("search", search.to_string()));
     }
     with_query(&api_url(base, "api/part/")?, &pairs)
+}
+
+pub fn part_detail_url(base: &str, pk: i64) -> Result<String, ClientError> {
+    if pk <= 0 {
+        return Err(ClientError::Invalid("零件不存在".into()));
+    }
+    with_query(
+        &api_url(base, &format!("api/part/{pk}/"))?,
+        &[
+            ("category_detail", "true".to_string()),
+            ("location_detail", "true".to_string()),
+            ("parameters", "true".to_string()),
+        ],
+    )
+}
+
+pub fn part_related_url(base: &str, path: &str, pk: i64) -> Result<String, ClientError> {
+    if pk <= 0 {
+        return Err(ClientError::Invalid("零件不存在".into()));
+    }
+    api_url(base, &format!("api/part/{pk}/{path}"))
+}
+
+pub fn list_count_url(base: &str, path: &str, key: &str, pk: i64) -> Result<String, ClientError> {
+    if pk <= 0 {
+        return Err(ClientError::Invalid("零件不存在".into()));
+    }
+    with_query(
+        &api_url(base, path)?,
+        &[
+            ("limit", "1".to_string()),
+            ("offset", "0".to_string()),
+            (key, pk.to_string()),
+        ],
+    )
+}
+
+pub fn attachment_count_url(base: &str, pk: i64) -> Result<String, ClientError> {
+    if pk <= 0 {
+        return Err(ClientError::Invalid("零件不存在".into()));
+    }
+    with_query(
+        &api_url(base, "api/attachment/")?,
+        &[
+            ("limit", "1".to_string()),
+            ("offset", "0".to_string()),
+            ("model_type", "part".to_string()),
+            ("model_id", pk.to_string()),
+        ],
+    )
+}
+
+pub fn part_stock_url(base: &str, pk: i64, offset: u32) -> Result<String, ClientError> {
+    if pk <= 0 {
+        return Err(ClientError::Invalid("零件不存在".into()));
+    }
+    with_query(
+        &api_url(base, "api/stock/")?,
+        &[
+            ("limit", PART_PAGE_LIMIT.to_string()),
+            ("offset", offset.to_string()),
+            ("part", pk.to_string()),
+            ("part_detail", "true".to_string()),
+            ("location_detail", "true".to_string()),
+        ],
+    )
 }
 
 pub fn category_list_url(
@@ -597,11 +961,34 @@ pub fn image_data_url(content_type: &str, bytes: &[u8]) -> Result<String, Client
 }
 
 fn string_field(value: &Value, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string()
+    match value.get(key) {
+        Some(Value::String(text)) => text.clone(),
+        _ => String::new(),
+    }
+}
+
+fn json_i64(value: &Value) -> Option<i64> {
+    match value {
+        Value::Number(number) => number.as_i64().or_else(|| number.as_f64().map(|item| item as i64)),
+        Value::String(text) => text.trim().parse().ok(),
+        _ => None,
+    }
+}
+
+fn optional_id(value: &Value, key: &str) -> Option<i64> {
+    value.get(key).and_then(json_i64).filter(|id| *id > 0)
+}
+
+fn number_field(value: &Value, key: &str) -> f64 {
+    match value.get(key) {
+        Some(Value::Number(number)) => number.as_f64().unwrap_or(0.0),
+        Some(Value::String(text)) => text.trim().parse().unwrap_or(0.0),
+        _ => 0.0,
+    }
+}
+
+fn bool_field(value: &Value, key: &str, default: bool) -> bool {
+    value.get(key).and_then(Value::as_bool).unwrap_or(default)
 }
 
 fn detail_message(body: &str, status: u16) -> String {
@@ -737,6 +1124,131 @@ pub async fn fetch_parts(
     let url = part_list_url(base, category, search, offset)?;
     let body = get_text(&url, trust_invalid_certs, Some(&format!("Token {token}"))).await?;
     parse_part_page(&body)
+}
+
+pub async fn fetch_part(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    pk: i64,
+) -> Result<PartDetail, ClientError> {
+    let authorization = format!("Token {token}");
+    let url = part_detail_url(base, pk)?;
+    let body = get_text(&url, trust_invalid_certs, Some(&authorization)).await?;
+    let mut detail = parse_part_detail(&body)?;
+    let template_pk = detail.template_pk;
+    let assembly = detail.assembly;
+    let component = detail.component;
+    let purchaseable = detail.purchaseable;
+
+    let template_url = match template_pk {
+        Some(id) => Some(part_detail_url(base, id)?),
+        None => None,
+    };
+    let bom_url = if assembly {
+        Some(list_count_url(base, "api/part/", "in_bom_for", pk)?)
+    } else {
+        None
+    };
+    let used_url = if component {
+        Some(list_count_url(base, "api/bom/", "uses", pk)?)
+    } else {
+        None
+    };
+    let supplier_url = if purchaseable {
+        Some(list_count_url(base, "api/company/part/", "part", pk)?)
+    } else {
+        None
+    };
+    let variant_url = list_count_url(base, "api/part/", "variant_of", pk)?;
+    let attachment_url = attachment_count_url(base, pk)?;
+    let price_url = part_related_url(base, "pricing/", pk)?;
+    let requirements_url = part_related_url(base, "requirements/", pk)?;
+
+    let (
+        template_body,
+        variant_count,
+        bom_count,
+        used_in_count,
+        supplier_count,
+        attachment_count,
+        price_body,
+        requirements_body,
+    ) = tokio::join!(
+        optional_text(template_url, trust_invalid_certs, authorization.clone()),
+        optional_count(Some(variant_url), trust_invalid_certs, authorization.clone()),
+        optional_count(bom_url, trust_invalid_certs, authorization.clone()),
+        optional_count(used_url, trust_invalid_certs, authorization.clone()),
+        optional_count(supplier_url, trust_invalid_certs, authorization.clone()),
+        optional_count(Some(attachment_url), trust_invalid_certs, authorization.clone()),
+        optional_text(Some(price_url), trust_invalid_certs, authorization.clone()),
+        optional_text(Some(requirements_url), trust_invalid_certs, authorization),
+    );
+
+    if let Some(body) = template_body {
+        if let Ok(parent) = parse_part_detail(&body) {
+            detail.template_name = parent.full_name;
+            detail.template_thumbnail = parent.thumbnail;
+        }
+    }
+    detail.variant_count = variant_count;
+    detail.bom_count = bom_count;
+    detail.used_in_count = used_in_count;
+    detail.supplier_count = supplier_count;
+    detail.attachment_count = attachment_count;
+    if let Some(body) = price_body {
+        detail.price_label = parse_price_label(&body);
+    }
+    if let Some(body) = requirements_body {
+        if let Some(stats) = parse_part_requirements(&body) {
+            detail.building = stats.building;
+            detail.scheduled_to_build = stats.scheduled_to_build;
+            detail.can_build = Some(stats.can_build);
+            detail.ordering = stats.ordering;
+            detail.allocated_to_build = stats.allocated_to_build;
+            detail.required_for_build = stats.required_for_build;
+            detail.allocated_to_sales = stats.allocated_to_sales;
+            detail.required_for_sales = stats.required_for_sales;
+        }
+    }
+    Ok(detail)
+}
+
+async fn optional_text(
+    url: Option<String>,
+    trust_invalid_certs: bool,
+    authorization: String,
+) -> Option<String> {
+    let url = url?;
+    get_text(&url, trust_invalid_certs, Some(&authorization))
+        .await
+        .ok()
+}
+
+async fn optional_count(
+    url: Option<String>,
+    trust_invalid_certs: bool,
+    authorization: String,
+) -> i64 {
+    let Some(url) = url else {
+        return 0;
+    };
+    match get_text(&url, trust_invalid_certs, Some(&authorization)).await {
+        Ok(body) => parse_list_count(&body),
+        Err(_) => 0,
+    }
+}
+
+pub async fn fetch_part_stock(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    pk: i64,
+    offset: u32,
+) -> Result<PartStockPage, ClientError> {
+    let url = part_stock_url(base, pk, offset)?;
+    let body = get_text(&url, trust_invalid_certs, Some(&format!("Token {token}"))).await?;
+    parse_part_stock_page(&body)
 }
 
 pub async fn fetch_categories(
@@ -1057,5 +1569,68 @@ mod tests {
         assert!(image_data_url("text/html", b"<p>").is_err());
         assert!(image_data_url("image/png", b"").is_err());
         assert!(image_data_url("image/png", &vec![0; MAX_THUMBNAIL_BYTES + 1]).is_err());
+    }
+
+    #[test]
+    fn parses_part_detail_and_related_counts() {
+        let detail = parse_part_detail(
+            r#"{"pk":9,"name":"电阻","full_name":"R 电阻","description":"10k","thumbnail":"/media/r.png","units":"个","active":false,"assembly":true,"component":true,"purchaseable":true,"salable":false,"in_stock":"4","category_name":"","category_detail":{"name":"电子"},"default_location_detail":{"name":"A1","pathstring":"仓库/A1"},"keywords":"电阻 10k","link":"https://example.com/r","notes":"注意极性","variant_of":3,"building":2,"scheduled_to_build":5,"allocated_to_build_orders":1,"required_for_build_orders":4,"ordering":6,"parameters":[{"pk":1,"data":"10k","template":2,"template_detail":{"name":"阻值","units":"Ω"},"model_id":9}]}"#,
+        )
+        .unwrap();
+        assert_eq!(detail.full_name, "R 电阻");
+        assert!(!detail.active);
+        assert_eq!(detail.category_name, "电子");
+        assert_eq!(detail.location, "仓库/A1");
+        assert_eq!(detail.in_stock, 4.0);
+        assert_eq!(detail.template_pk, Some(3));
+        assert_eq!(detail.parameters[0].name, "阻值");
+        assert_eq!(detail.parameters[0].units, "Ω");
+        assert!(parse_part_detail("{}").is_err());
+        assert!(parse_part_detail("[]").is_err());
+
+        let requirements = parse_part_requirements(
+            r#"{"building":1,"scheduled_to_build":8,"can_build":3,"ordering":2,"allocated_to_build_orders":1,"required_for_build_orders":4,"allocated_to_sales_orders":0,"required_for_sales_orders":0}"#,
+        )
+        .unwrap();
+        assert_eq!(requirements.can_build, 3.0);
+        assert!(parse_part_requirements("[]").is_none());
+        assert_eq!(
+            parse_price_label(r#"{"currency":"CNY","overall_min":"1.500000","overall_max":"2.000000"}"#)
+                .unwrap(),
+            "CNY 1.5 – 2"
+        );
+        assert_eq!(parse_price_label(r#"{"currency":"","overall_min":null,"overall_max":null}"#).unwrap(), "");
+        assert_eq!(parse_list_count(r#"{"count":12,"results":[]}"#), 12);
+        assert_eq!(parse_list_count(r#"[{"pk":1}]"#), 1);
+    }
+
+    #[test]
+    fn builds_part_detail_urls_and_parses_stock() {
+        let base = "https://demo.example.com/inventree";
+        assert_eq!(
+            part_detail_url(base, 9).unwrap(),
+            "https://demo.example.com/inventree/api/part/9/?category_detail=true&location_detail=true&parameters=true"
+        );
+        assert!(part_detail_url(base, 0).is_err());
+        assert_eq!(
+            part_stock_url(base, 9, 50).unwrap(),
+            "https://demo.example.com/inventree/api/stock/?limit=50&offset=50&part=9&part_detail=true&location_detail=true"
+        );
+        assert_eq!(
+            list_count_url(base, "api/part/", "variant_of", 9).unwrap(),
+            "https://demo.example.com/inventree/api/part/?limit=1&offset=0&variant_of=9"
+        );
+        assert_eq!(
+            attachment_count_url(base, 9).unwrap(),
+            "https://demo.example.com/inventree/api/attachment/?limit=1&offset=0&model_type=part&model_id=9"
+        );
+        let page = parse_part_stock_page(
+            r#"{"count":1,"results":[{"pk":3,"quantity":2,"part_detail":{"full_name":"电阻","units":"个","thumbnail":"/media/r.png"},"location_detail":{"name":"A1","pathstring":"仓库/A1"}}]}"#,
+        )
+        .unwrap();
+        assert_eq!(page.results[0].part_name, "电阻");
+        assert_eq!(page.results[0].location, "仓库/A1");
+        assert_eq!(page.results[0].quantity, "2 个");
+        assert_eq!(page.results[0].thumbnail, "/media/r.png");
     }
 }

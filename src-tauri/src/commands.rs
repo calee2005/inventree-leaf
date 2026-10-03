@@ -1,4 +1,7 @@
-use crate::client::{self, CategoryPage, ClientError, PartPage, RecordPage, ServerInfo, SessionUser};
+use crate::client::{
+    self, CategoryPage, ClientError, PartDetail, PartPage, PartStockPage, RecordPage, ServerInfo,
+    SessionUser,
+};
 use crate::store::{self, ServerView};
 use tauri::AppHandle;
 
@@ -95,6 +98,40 @@ pub async fn list_parts(
             &token,
             category,
             &search,
+            offset.unwrap_or(0),
+        )
+        .await,
+    )
+}
+
+#[tauri::command]
+pub async fn get_part(app: AppHandle, id: String, pk: i64) -> Result<PartDetail, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::fetch_part(&profile.server, profile.trusted_certificate, &token, pk).await,
+    )
+}
+
+#[tauri::command]
+pub async fn list_part_stock(
+    app: AppHandle,
+    id: String,
+    pk: i64,
+    offset: Option<u32>,
+) -> Result<PartStockPage, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::fetch_part_stock(
+            &profile.server,
+            profile.trusted_certificate,
+            &token,
+            pk,
             offset.unwrap_or(0),
         )
         .await,

@@ -11,7 +11,7 @@
 | 换 token | `GET /api/user/me/token/` | `GET /api/user/token/` |
 | 当前用户角色 | `GET /api/user/me/roles/` | `GET /api/user/roles/` |
 
-登录后调用「当前用户」「零件列表」「零件类别」和缩略图。不拉取角色，也不提交创建、编辑或筛选。角色路径保留在客户端里，供以后使用。
+登录后调用「当前用户」「零件列表」「零件详情」「零件库存」「零件类别」和缩略图。不拉取角色，也不提交创建、编辑或筛选。角色路径保留在客户端里，供以后使用。
 
 ## 探测服务器
 
@@ -63,7 +63,39 @@ token 写入单独的存储项，不放进服务器档案。
 - `units`：库存数字后面的单位，空则只显示数字
 - `thumbnail`：图片地址。空、外站或下载失败时，界面保留灰色占位
 
-卡片上只显示名称、缩略图和库存。IPN 与描述仍从响应里解析，当前不展示。不提交创建、编辑，也不实现零件详情。
+卡片上只显示名称、缩略图和库存。IPN 与描述仍从响应里解析，当前不展示。不提交创建或编辑。点开一张卡片后读取零件详情。
+
+## 零件详情
+
+`GET {base}api/part/{pk}/?category_detail=true&location_detail=true&parameters=true`
+
+同样使用 `Authorization: Token <value>`。需要零件的查看权限，否则 403。界面使用：
+
+- `pk`、`name`、`full_name`、`description`、`thumbnail`、`units`、`active`
+- `assembly`、`component`、`purchaseable`、`salable`
+- `in_stock`、`category_name`（空则用 `category_detail.name`）
+- `default_location_detail.pathstring`，空则用其中的 `name`
+- `keywords`、`link`、`notes`、`variant_of`
+- `parameters[].data` 和 `parameters[].template_detail` 的 `name`、`units`
+
+详情加载后还会并行读取这些只用于计数或补充行的接口。其中某一个失败时，对应行留空，不把整页判失败：
+
+| 用途 | 请求 |
+| --- | --- |
+| 上级模板 | `GET {base}api/part/{variant_of}/`，仅在 `variant_of` 有值时 |
+| 变体数量 | `GET {base}api/part/?variant_of={pk}&limit=1` |
+| 物料清单数量 | `GET {base}api/part/?in_bom_for={pk}&limit=1`，仅装配件 |
+| 用于装配数量 | `GET {base}api/bom/?uses={pk}&limit=1`，仅元器件 |
+| 供应商数量 | `GET {base}api/company/part/?part={pk}&limit=1`，仅可采购 |
+| 附件数量 | `GET {base}api/attachment/?model_type=part&model_id={pk}&limit=1` |
+| 价格区间 | `GET {base}api/part/{pk}/pricing/`，读 `currency`、`overall_min`、`overall_max` |
+| 需求 | `GET {base}api/part/{pk}/requirements/`，读在产、可生产、分配和在途数量 |
+
+## 零件库存
+
+`GET {base}api/stock/?part={pk}&part_detail=true&location_detail=true&limit=50&offset=0`
+
+详情页的库存页使用。200 的模型是库存分页列表。每一行使用 `pk`、`quantity`、`part_detail` 的名称和缩略图，以及 `location_detail.pathstring`。
 
 ## 零件类别
 

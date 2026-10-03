@@ -37,6 +37,63 @@ export type PartPage = {
   results: PartSummary[];
 };
 
+export type PartParameter = {
+  name: string;
+  value: string;
+  units: string;
+};
+
+export type PartDetail = {
+  pk: number;
+  name: string;
+  fullName: string;
+  description: string;
+  thumbnail: string;
+  units: string;
+  active: boolean;
+  assembly: boolean;
+  component: boolean;
+  purchaseable: boolean;
+  salable: boolean;
+  inStock: number;
+  categoryName: string;
+  location: string;
+  keywords: string;
+  link: string;
+  notes: string;
+  templatePk: number | null;
+  templateName: string;
+  templateThumbnail: string;
+  variantCount: number;
+  bomCount: number;
+  usedInCount: number;
+  supplierCount: number;
+  attachmentCount: number;
+  building: number;
+  scheduledToBuild: number;
+  canBuild: number | null;
+  allocatedToBuild: number;
+  requiredForBuild: number;
+  allocatedToSales: number;
+  requiredForSales: number;
+  ordering: number;
+  priceLabel: string | null;
+  parameters: PartParameter[];
+};
+
+export type PartStockItem = {
+  pk: number;
+  partName: string;
+  location: string;
+  quantity: string;
+  thumbnail: string;
+};
+
+export type PartStockPage = {
+  count: number;
+  results: PartStockItem[];
+};
+
 export type CategorySummary = {
   pk: number;
   name: string;

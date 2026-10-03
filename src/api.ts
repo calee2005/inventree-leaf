@@ -2,7 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   CategoryPage,
   CommandFailure,
+  PartDetail,
   PartPage,
+  PartStockPage,
   RecordPage,
   ServerInfo,
   ServerView,
@@ -74,6 +76,14 @@ export function listParts(id: string, category: number | null, search: string, o
     search: search.trim() ? search.trim() : null,
     offset,
   });
+}
+
+export function getPart(id: string, pk: number) {
+  return invoke<PartDetail>("get_part", { id, pk });
+}
+
+export function listPartStock(id: string, pk: number, offset: number) {
+  return invoke<PartStockPage>("list_part_stock", { id, pk, offset });
 }
 
 export function listPartCategories(id: string, parent: number | null, offset: number) {

@@ -2,16 +2,10 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { listParts, loadPartThumbnail, readError } from "../api";
 import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
-import type { ShellAction, ShellPanel } from "../shell/AppShell";
+import { useShell } from "../shell/AppShell";
+import { usePageStack } from "../shell/pageStack";
 import type { CategorySummary, CommandFailure, PartSummary } from "../types";
 import { CategoryPath } from "./CategoryPath";
-
-type Props = {
-  serverId: string;
-  panel: ShellPanel;
-  onPanel: (panel: ShellPanel) => void;
-  setActions: (actions: ShellAction[]) => void;
-};
 
 function formatQty(value: number): string {
   if (Number.isInteger(value)) {
@@ -26,7 +20,9 @@ function formatStock(part: PartSummary): string {
   return units ? `${qty} ${units}` : qty;
 }
 
-export function PartsScreen({ serverId, panel, onPanel, setActions }: Props) {
+export function PartsScreen() {
+  const { serverId, panel, setPanel, setActions } = useShell();
+  const stack = usePageStack();
   const [trail, setTrail] = useState<CategorySummary[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -96,7 +92,7 @@ export function PartsScreen({ serverId, panel, onPanel, setActions }: Props) {
   }, [serverId, categoryId, query]);
 
   function openTrail(next: CategorySummary[]) {
-    onPanel(null);
+    setPanel(null);
     setTrail(next);
   }
 
@@ -111,7 +107,7 @@ export function PartsScreen({ serverId, panel, onPanel, setActions }: Props) {
 
   function toggleSearch(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
-    onPanel(null);
+    setPanel(null);
     setSearchOpen((open) => {
       const next = !open;
       if (next) {
@@ -133,7 +129,7 @@ export function PartsScreen({ serverId, panel, onPanel, setActions }: Props) {
             onClick={(event) => {
               event.stopPropagation();
               setSearchOpen(false);
-              onPanel(panel === "filter" ? null : "filter");
+              setPanel(panel === "filter" ? null : "filter");
             }}
           >
             <FilterIcon />
@@ -174,12 +170,18 @@ export function PartsScreen({ serverId, panel, onPanel, setActions }: Props) {
       <PullToRefresh onRefresh={reload}>
       <ul className="part-list">
         {parts.map((part) => (
-          <li className="part-card" key={part.pk}>
+          <li key={part.pk}>
+            <button
+              className="part-card"
+              type="button"
+              onClick={() => stack.push(`/parts/${part.pk}`, part)}
+            >
             <PartThumb serverId={serverId} thumbnail={part.thumbnail} />
             <div className="part-body">
               <strong>{part.name}</strong>
               <span className="part-qty">{formatStock(part)}</span>
             </div>
+            </button>
           </li>
         ))}
       </ul>
@@ -189,7 +191,7 @@ export function PartsScreen({ serverId, panel, onPanel, setActions }: Props) {
   );
 }
 
-function PartThumb({ serverId, thumbnail }: { serverId: string; thumbnail: string }) {
+export function PartThumb({ serverId, thumbnail }: { serverId: string; thumbnail: string }) {
   const [src, setSrc] = useState<string | null>(null);
 
   useEffect(() => {

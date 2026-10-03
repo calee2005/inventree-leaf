@@ -2,15 +2,16 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { listRecords, readError } from "../api";
 import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
+import { useShell } from "../shell/AppShell";
 import type { CommandFailure, RecordSummary } from "../types";
 
 type Props = {
-  serverId: string;
   kind: string;
   emptyText: string;
 };
 
-export function RecordListScreen({ serverId, kind, emptyText }: Props) {
+export function RecordListScreen({ kind, emptyText }: Props) {
+  const { serverId } = useShell();
   const [searchInput, setSearchInput] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
