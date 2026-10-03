@@ -69,7 +69,20 @@ function readDisk(): Disk {
 }
 
 function writeDisk(disk: Disk) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(disk));
+  localStorage.setItem(
+    STORE_KEY,
+    JSON.stringify({
+      servers: disk.servers.map((server) => ({
+        id: server.id,
+        name: server.name,
+        server: server.server,
+        trustedCertificate: server.trustedCertificate,
+        selected: server.selected,
+      })),
+      tokens: disk.tokens,
+      usernames: disk.usernames,
+    }),
+  );
 }
 
 function viewOf(record: ServerRecord, disk: Disk): ServerView {
@@ -439,7 +452,7 @@ export async function login(id: string, username: string, password: string): Pro
   const tokenPath = info.apiVersion >= NEW_USER_API ? "api/user/me/token/" : "api/user/token/";
   const tokenBody = asObject(
     await request(`${apiUrl(base, tokenPath)}?name=${TOKEN_NAME}`, {
-      basic: `Basic ${btoa(`${userName}:${pass}`)}`,
+      basic: basicHeader(userName, pass),
     }),
   );
   const token = text(tokenBody, "token").trim();
@@ -452,6 +465,15 @@ export async function login(id: string, username: string, password: string): Pro
   disk.usernames[id] = user.username;
   writeDisk(disk);
   return user;
+}
+
+function basicHeader(username: string, password: string): string {
+  const bytes = new TextEncoder().encode(`${username}:${password}`);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return `Basic ${btoa(binary)}`;
 }
 
 async function fetchMe(base: string, token: string): Promise<SessionUser> {

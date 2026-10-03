@@ -54,8 +54,10 @@ export function ConnectScreen({ serverId, onBack, onLoggedIn }: Props) {
     event.preventDefault();
     setBusy(true);
     setError(null);
+    const secret = password;
+    setPassword("");
     try {
-      const user = await login(serverId, username, password);
+      const user = await login(serverId, username, secret);
       onLoggedIn(user);
     } catch (reason: unknown) {
       setError(readError(reason));
@@ -77,7 +79,7 @@ export function ConnectScreen({ serverId, onBack, onLoggedIn }: Props) {
   }
 
   return (
-    <form className="stack" onSubmit={(event) => void onSubmit(event)}>
+    <form className="stack" method="post" action="#" onSubmit={(event) => void onSubmit(event)}>
       <header>
         <div>
           <h1>{server?.name ?? "连接"}</h1>
@@ -94,9 +96,16 @@ export function ConnectScreen({ serverId, onBack, onLoggedIn }: Props) {
         </p>
       ) : null}
       <Notice error={error} />
-      <TextField label="用户名" value={username} onChange={setUsername} autoComplete="username" />
+      <TextField
+        label="用户名"
+        name="username"
+        value={username}
+        onChange={setUsername}
+        autoComplete="username"
+      />
       <TextField
         label="密码"
+        name="password"
         type="password"
         value={password}
         onChange={setPassword}

@@ -5,7 +5,7 @@
 ## 技术
 
 - React + TypeScript（Vite），纯浏览器应用
-- 页面自己请求 InvenTree。服务器档案和 token 存在 `localStorage`，由 `src/browser/client.ts` 读写；界面只拿到业务数据，不读 token
+- 页面自己请求 InvenTree。服务器档案和 token 存在 `localStorage`，由 `src/browser/client.ts` 读写；界面只拿到业务数据，不读 token。密码只在换 token 时使用，不写入本地档案
 - 本地用 `npm run dev`。发布到 NAS 用 `npm run test-release`，站点基址写在项目根的 `test-release.local`
 
 ## 目录
@@ -37,3 +37,4 @@
 
 - 不要把 `inventree-app` 的页面或 Dart API 封装抄进来
 - 不要把 token 返回给界面
+- 不要把密码写入本地档案或界面状态以外的地方

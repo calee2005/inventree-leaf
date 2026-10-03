@@ -9,13 +9,14 @@ type Props = {
   variant?: "field" | "search";
 } & Pick<
   InputHTMLAttributes<HTMLInputElement>,
-  "inputMode" | "placeholder" | "autoComplete" | "enterKeyHint" | "onFocus"
+  "name" | "inputMode" | "placeholder" | "autoComplete" | "enterKeyHint" | "onFocus"
 >;
 
 export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
   { label, hint, value, onChange, type = "text", variant = "field", ...rest },
   ref,
 ) {
+  const secret = type === "password";
   const input = (
     <input
       {...rest}
@@ -24,6 +25,9 @@ export const TextField = forwardRef<HTMLInputElement, Props>(function TextField(
       type={variant === "search" ? "search" : type}
       value={value}
       onChange={(event) => onChange(event.target.value)}
+      autoCapitalize={secret ? "none" : undefined}
+      autoCorrect={secret ? "off" : undefined}
+      spellCheck={secret ? false : undefined}
     />
   );
   if (!label) {
