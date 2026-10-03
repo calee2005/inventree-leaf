@@ -354,6 +354,20 @@ button:not(:disabled):active,
   font-weight: 700;
 }
 
+.app-version {
+  margin: -4px 0 0;
+  color: #b0b4be;
+  font-size: 12px;
+  font-weight: 450;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.server-menu .app-version {
+  margin: 0;
+  padding: 4px 14px 10px;
+}
+
 .shell-list button.primary {
   border-radius: 999px;
   background: #2f78f6;

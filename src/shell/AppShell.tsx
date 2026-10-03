@@ -3,6 +3,7 @@ import { useLocation } from "react-router";
 import { currentUser, listServers, logout, readError } from "../api";
 import type { CommandFailure, ServerView, SessionUser } from "../types";
 import { usePageStack } from "./pageStack";
+import { AppVersion } from "../ui/AppVersion";
 
 export type ShellAction = {
   id: string;
@@ -198,6 +199,7 @@ export function AppShell({ serverId, user, views, onLoggedOut, onLeave, children
             >
               返回服务器列表
             </button>
+            <AppVersion />
           </div>
         ) : null}
       </div>

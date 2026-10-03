@@ -11,6 +11,7 @@ import { deleteServer, listServers, readError, selectServer } from "../api";
 import { PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import type { CommandFailure, ServerView } from "../types";
+import { AppVersion } from "../ui/AppVersion";
 
 type Props = {
   onCreate: () => void;
@@ -65,6 +66,7 @@ export function ServersScreen({ onCreate, onEdit, onEnter }: Props) {
       <div className="brand">
         <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="" />
         <p className="brand-name">InvenTree</p>
+        <AppVersion />
       </div>
       <button className="primary" type="button" onClick={onCreate}>
         新增服务器
