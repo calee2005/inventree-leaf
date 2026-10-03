@@ -12,9 +12,6 @@ type Props = {
 export function ServerFormScreen({ server, onCancel, onSaved }: Props) {
   const [name, setName] = useState(server?.name ?? "");
   const [address, setAddress] = useState(server?.server ?? "");
-  const [trustedCertificate, setTrustedCertificate] = useState(
-    server?.trustedCertificate ?? false,
-  );
   const [error, setError] = useState<CommandFailure | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -27,7 +24,7 @@ export function ServerFormScreen({ server, onCancel, onSaved }: Props) {
         id: server?.id ?? null,
         name,
         server: address,
-        trustedCertificate,
+        trustedCertificate: server?.trustedCertificate ?? false,
       });
       onSaved(saved);
     } catch (reason: unknown) {
@@ -57,14 +54,6 @@ export function ServerFormScreen({ server, onCancel, onSaved }: Props) {
           inputMode="url"
           placeholder="http://192.168.1.20:8000"
         />
-      </label>
-      <label className="check">
-        <input
-          checked={trustedCertificate}
-          onChange={(event) => setTrustedCertificate(event.target.checked)}
-          type="checkbox"
-        />
-        信任无效证书
       </label>
       <Notice error={error} />
       <button className="primary" type="submit" disabled={saving}>

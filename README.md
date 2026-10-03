@@ -4,5 +4,7 @@
 
 ```bash
 npm install
-npm run tauri dev
+npm run dev
 ```
+
+发布到 NAS：`npm run test-release`。

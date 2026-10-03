@@ -15,7 +15,7 @@
 
 - 路径、查询参数、响应字段以 `schema.yaml` 为准。
 - 认证顺序和旧服务器分支见 [auth.md](auth.md)。那部分对齐官方移动端的连接流程，schema 530 里已经没有旧的 `/api/user/token/`。
-- 业务请求从 Rust 发出。界面不保存 token，也不直接 `fetch`。
+- 业务请求从浏览器发出。token 由 `src/browser/client.ts` 保存，界面不读取。
 
 ## 通用约定
 

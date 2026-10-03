@@ -120,7 +120,7 @@ token 写入单独的存储项，不放进服务器档案。
 
 ## 缩略图
 
-`thumbnail` 由 Rust 下载，界面只收到 data URL，不接触 token。
+`thumbnail` 由浏览器带着 token 下载。界面只收到图片地址，不接触 token。
 
 - 只接受与服务器相同主机、相同端口的 `http` 或 `https`
 - 以 `/` 开头的路径接到站点根。`/media/...` 不挂在 API 子路径下
@@ -134,7 +134,7 @@ token 写入单独的存储项，不放进服务器档案。
 - `id`
 - `name`：显示名，不能空，也不能重名
 - `server`：规范化后的基址
-- `trustedCertificate`：为真时，该档案的 TLS 允许无效证书
+- `trustedCertificate`：档案里保留。证书由浏览器校验
 - `selected`：当前选中的档案
 
 退出登录只删除该档案的 token。

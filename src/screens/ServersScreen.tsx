@@ -63,7 +63,7 @@ export function ServersScreen({ onCreate, onEdit, onEnter }: Props) {
   return (
     <section className="server-list">
       <div className="brand">
-        <img className="brand-logo" src="/logo.png" alt="" />
+        <img className="brand-logo" src={`${import.meta.env.BASE_URL}logo.png`} alt="" />
         <p className="brand-name">InvenTree</p>
       </div>
       <button className="primary" type="button" onClick={onCreate}>

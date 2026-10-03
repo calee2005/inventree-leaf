@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { listServers, login, logout, readError, saveServer, testConnection } from "../api";
+import { listServers, login, logout, readError, testConnection } from "../api";
 import { Notice } from "../Notice";
 import type { CommandFailure, ServerInfo, ServerView, SessionUser } from "../types";
 
@@ -49,24 +49,6 @@ export function ConnectScreen({ serverId, onBack, onLoggedIn }: Props) {
     }
   }
 
-  async function onTrustChange(trustedCertificate: boolean) {
-    if (!server) {
-      return;
-    }
-    setError(null);
-    try {
-      const saved = await saveServer({
-        id: server.id,
-        name: server.name,
-        server: server.server,
-        trustedCertificate,
-      });
-      setServer(saved);
-    } catch (reason: unknown) {
-      setError(readError(reason));
-    }
-  }
-
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
@@ -110,15 +92,6 @@ export function ConnectScreen({ serverId, onBack, onLoggedIn }: Props) {
           {info.version}（API {info.apiVersion}）
         </p>
       ) : null}
-      <label className="check">
-        <input
-          checked={server?.trustedCertificate ?? false}
-          onChange={(event) => void onTrustChange(event.target.checked)}
-          type="checkbox"
-          disabled={!server}
-        />
-        信任无效证书
-      </label>
       <Notice error={error} />
       <label>
         用户名

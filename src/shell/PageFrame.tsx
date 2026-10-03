@@ -88,7 +88,7 @@ export function PageFrame({ back = false, title, children }: Props) {
 }
 
 function AppLogo() {
-  return <img className="app-mark" src="/logo.png" alt="" />;
+  return <img className="app-mark" src={`${import.meta.env.BASE_URL}logo.png`} alt="" />;
 }
 
 function ChevronLeft() {
