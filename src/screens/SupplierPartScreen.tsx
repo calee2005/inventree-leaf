@@ -6,17 +6,12 @@ import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
 import { useShell } from "../shell/AppShell";
 import type { CommandFailure, SupplierPartDetail, SupplierPartSummary } from "../types";
-import { PartThumb } from "./PartsScreen";
-
-function formatQty(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "0";
-  }
-  if (Number.isInteger(value)) {
-    return String(value);
-  }
-  return String(Math.round(value * 1000) / 1000);
-}
+import { DetailGroup } from "../ui/DetailGroup";
+import { DetailHeading } from "../ui/DetailHeading";
+import { DetailRow } from "../ui/DetailRow";
+import { PartCard } from "../ui/PartCard";
+import { openLink } from "../ui/openLink";
+import { formatQty } from "../ui/quantity";
 
 export function SupplierPartListScreen() {
   const { serverId } = useShell();
@@ -85,20 +80,16 @@ export function SupplierPartListScreen() {
         {!loading && items.length === 0 && !error ? <p className="muted">这里还没有供应商零件。</p> : null}
         <ul className="part-list">
           {items.map((item) => (
-            <li key={item.pk}>
-              <button
-                className="part-card stock-card"
-                type="button"
-                onClick={() => stack.push(`/parts/supplier/${item.pk}`)}
-              >
-                <PartThumb serverId={serverId} thumbnail={item.supplierImage} />
-                <div className="part-body">
-                  <strong>{item.sku || "未编号"}</strong>
-                  {item.supplierName ? <small>{item.supplierName}</small> : null}
-                  <span className="part-qty">{formatQty(item.inStock)}</span>
-                </div>
-              </button>
-            </li>
+            <PartCard
+              key={item.pk}
+              square
+              serverId={serverId}
+              thumbnail={item.supplierImage}
+              title={item.sku || "未编号"}
+              detail={item.supplierName || undefined}
+              trailing={formatQty(item.inStock)}
+              onClick={() => stack.push(`/parts/supplier/${item.pk}`)}
+            />
           ))}
         </ul>
         {items.length > 0 || hasMore ? (
@@ -158,89 +149,29 @@ export function SupplierPartDetailScreen() {
       <PullToRefresh onRefresh={load}>
         {item ? (
           <div className="detail-stack">
-            <div className="detail-heading">
-              <strong>{item.sku || "未编号"}</strong>
-              {item.supplierName ? <p className="detail-spec">{item.supplierName}</p> : null}
-            </div>
-            <div className="detail-group">
-              {!item.active ? <InfoRow title="未激活" detail="此供应商零件已停用" danger /> : null}
-              <button
-                className="detail-row"
-                type="button"
-                onClick={() => {
-                  if (item.partId > 0) {
-                    stack.push(`/parts/${item.partId}`);
-                  }
-                }}
-              >
-                <span className="detail-copy">
-                  <strong>内部零件</strong>
-                  {item.partName ? <small>{item.partName}</small> : null}
-                </span>
-                <Chevron />
-              </button>
-              <InfoRow title="主供应商" aside={item.primary ? "是" : "否"} />
-              <InfoRow title="可用库存" aside={formatQty(item.inStock)} />
-              {item.supplierName ? <InfoRow title="供应商" detail={item.supplierName} /> : null}
-              <InfoRow title="供应商零件编号" detail={item.sku || "未编号"} />
-              {item.manufacturerName ? <InfoRow title="制造商" detail={item.manufacturerName} /> : null}
-              {item.mpn ? <InfoRow title="制造商零件" detail={item.mpn} /> : null}
+            <DetailHeading title={item.sku || "未编号"} detail={item.supplierName || undefined} />
+            <DetailGroup>
+              {!item.active ? <DetailRow title="未激活" detail="此供应商零件已停用" danger /> : null}
+              <DetailRow
+                title="内部零件"
+                detail={item.partName || undefined}
+                onClick={item.partId > 0 ? () => stack.push(`/parts/${item.partId}`) : undefined}
+              />
+              <DetailRow title="主供应商" aside={item.primary ? "是" : "否"} />
+              <DetailRow title="可用库存" aside={formatQty(item.inStock)} />
+              {item.supplierName ? <DetailRow title="供应商" detail={item.supplierName} /> : null}
+              <DetailRow title="供应商零件编号" detail={item.sku || "未编号"} />
+              {item.manufacturerName ? <DetailRow title="制造商" detail={item.manufacturerName} /> : null}
+              {item.mpn ? <DetailRow title="制造商零件" detail={item.mpn} /> : null}
               {item.packaging || item.packQuantity ? (
-                <InfoRow title="包装" detail={item.packaging} aside={item.packQuantity} />
+                <DetailRow title="包装" detail={item.packaging || undefined} aside={item.packQuantity || undefined} />
               ) : null}
-              {item.link ? (
-                <button className="detail-row" type="button" onClick={() => openLink(item.link)}>
-                  <span className="detail-copy">
-                    <strong>外部链接</strong>
-                    <small>{item.link}</small>
-                  </span>
-                  <Chevron />
-                </button>
-              ) : null}
-              {item.note ? <InfoRow title="注释" detail={item.note} note /> : null}
-            </div>
+              {item.link ? <DetailRow title="外部链接" detail={item.link} onClick={() => openLink(item.link)} /> : null}
+              {item.note ? <DetailRow title="注释" detail={item.note} note /> : null}
+            </DetailGroup>
           </div>
         ) : null}
       </PullToRefresh>
     </div>
   );
-}
-
-function InfoRow({
-  title,
-  detail,
-  aside,
-  danger,
-  note,
-}: {
-  title: string;
-  detail?: string;
-  aside?: string;
-  danger?: boolean;
-  note?: boolean;
-}) {
-  return (
-    <div className={danger ? "detail-row is-danger" : "detail-row"}>
-      <span className="detail-copy">
-        <strong>{title}</strong>
-        {detail ? <small className={note ? "detail-notes" : undefined}>{detail}</small> : null}
-      </span>
-      {aside ? <span className="detail-aside">{aside}</span> : null}
-    </div>
-  );
-}
-
-function Chevron() {
-  return (
-    <svg className="row-chevron" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="m9 6 6 6-6 6" />
-    </svg>
-  );
-}
-
-function openLink(url: string) {
-  if (!/^https?:\/\//i.test(url)) {
-    return;
-  }
-  window.open(url, "_blank", "noopener,noreferrer");
 }

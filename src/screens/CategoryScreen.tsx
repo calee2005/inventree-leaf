@@ -6,16 +6,15 @@ import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
 import { useShell } from "../shell/AppShell";
 import type { CategorySummary, CommandFailure, PartCategory, PartSummary } from "../types";
-import { PartThumb } from "./PartsScreen";
+import { DetailGroup } from "../ui/DetailGroup";
+import { DetailHeading } from "../ui/DetailHeading";
+import { DetailRow } from "../ui/DetailRow";
+import { PartCard } from "../ui/PartCard";
+import { SectionLabel } from "../ui/SectionLabel";
+import { SegmentTabs } from "../ui/SegmentTabs";
+import { formatStock } from "../ui/quantity";
 
 type Tab = "detail" | "parts";
-
-function formatStock(part: PartSummary): string {
-  const value = part.inStock;
-  const qty = Number.isInteger(value) ? String(value) : String(Math.round(value * 1000) / 1000);
-  const units = part.units.trim();
-  return units ? `${qty} ${units}` : qty;
-}
 
 export function CategoryScreen() {
   const { serverId } = useShell();
@@ -154,26 +153,14 @@ export function CategoryScreen() {
 
   return (
     <div className="part-detail">
-      <div className="detail-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "detail"}
-          className={tab === "detail" ? "is-on" : ""}
-          onClick={() => setTab("detail")}
-        >
-          详细信息
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "parts"}
-          className={tab === "parts" ? "is-on" : ""}
-          onClick={() => setTab("parts")}
-        >
-          零件
-        </button>
-      </div>
+      <SegmentTabs
+        value={tab}
+        options={[
+          { id: "detail", label: "详细信息" },
+          { id: "parts", label: "零件" },
+        ]}
+        onChange={setTab}
+      />
       <Notice error={tab === "parts" ? partError : error ?? childError} />
       <PullToRefresh
         onRefresh={async () => {
@@ -199,53 +186,38 @@ export function CategoryScreen() {
       >
         {tab === "detail" ? (
           <div className="detail-stack">
-            <div className="detail-heading">
-              <strong>{title}</strong>
-              {description ? <p className="detail-spec">{description}</p> : null}
-            </div>
+            <DetailHeading title={title} detail={description || undefined} />
             {loading ? <p className="muted">正在读取类别…</p> : null}
             {!isRoot && category ? (
-              <div className="detail-group">
-                <button
-                  className="detail-row"
-                  type="button"
+              <DetailGroup>
+                <DetailRow
+                  title="上级类别"
+                  detail={category.parentPath || "上一级零件类别"}
                   onClick={() =>
                     stack.push(
                       category.parentId ? `/parts/category/${category.parentId}` : "/parts/category/root",
                     )
                   }
-                >
-                  <span className="detail-copy">
-                    <strong>上级类别</strong>
-                    <small>{category.parentPath || "上一级零件类别"}</small>
-                  </span>
-                  <RowChevron />
-                </button>
-              </div>
+                />
+              </DetailGroup>
             ) : null}
-            <p className="section-label">子类别</p>
+            <SectionLabel>子类别</SectionLabel>
             {childLoading && children.length === 0 ? <p className="muted">正在读取子类别…</p> : null}
             {!childLoading && children.length === 0 && !childError ? (
               <p className="muted">没有子类别。</p>
             ) : null}
             {children.length > 0 ? (
-              <div className="detail-group">
+              <DetailGroup>
                 {children.map((item) => (
-                  <button
-                    className="detail-row"
-                    type="button"
+                  <DetailRow
                     key={item.pk}
+                    title={item.name || "未命名类别"}
+                    detail={item.pathstring && item.pathstring !== item.name ? item.pathstring : undefined}
+                    aside={String(item.partCount)}
                     onClick={() => stack.push(`/parts/category/${item.pk}`)}
-                  >
-                    <span className="detail-copy">
-                      <strong>{item.name || "未命名类别"}</strong>
-                      {item.pathstring && item.pathstring !== item.name ? <small>{item.pathstring}</small> : null}
-                    </span>
-                    <span className="detail-aside">{item.partCount}</span>
-                    <RowChevron />
-                  </button>
+                  />
                 ))}
-              </div>
+              </DetailGroup>
             ) : null}
             {children.length > 0 || childHasMore ? (
               <InfiniteScroll
@@ -269,19 +241,14 @@ export function CategoryScreen() {
             ) : null}
             <ul className="part-list">
               {parts.map((part) => (
-                <li key={part.pk}>
-                  <button
-                    className="part-card"
-                    type="button"
-                    onClick={() => stack.push(`/parts/${part.pk}`, part)}
-                  >
-                    <PartThumb serverId={serverId} thumbnail={part.thumbnail} />
-                    <div className="part-body">
-                      <strong>{part.name}</strong>
-                      <span className="part-qty">{formatStock(part)}</span>
-                    </div>
-                  </button>
-                </li>
+                <PartCard
+                  key={part.pk}
+                  serverId={serverId}
+                  thumbnail={part.thumbnail}
+                  title={part.name}
+                  trailing={formatStock(part.inStock, part.units)}
+                  onClick={() => stack.push(`/parts/${part.pk}`, part)}
+                />
               ))}
             </ul>
             {parts.length > 0 || partHasMore ? (
@@ -301,13 +268,5 @@ export function CategoryScreen() {
         )}
       </PullToRefresh>
     </div>
-  );
-}
-
-function RowChevron() {
-  return (
-    <svg className="row-chevron" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="m9 6 6 6-6 6" />
-    </svg>
   );
 }

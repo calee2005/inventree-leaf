@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router";
 import { getPart, listPartStock, loadPartImage, loadPartThumbnail, readError } from "../api";
 import { InfiniteScroll, PullToRefresh } from "../MobileList";
@@ -6,25 +6,14 @@ import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
 import { useShell } from "../shell/AppShell";
 import type { CommandFailure, PartDetail, PartStockItem, PartSummary } from "../types";
-import { PartThumb } from "./PartsScreen";
+import { DetailHeading } from "../ui/DetailHeading";
+import { DetailRow as Row } from "../ui/DetailRow";
+import { PartCard } from "../ui/PartCard";
+import { SegmentTabs } from "../ui/SegmentTabs";
+import { openLink } from "../ui/openLink";
+import { formatQty, formatStock } from "../ui/quantity";
 
 type Tab = "detail" | "stock";
-
-function formatQty(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "0";
-  }
-  if (Number.isInteger(value)) {
-    return String(value);
-  }
-  return String(Math.round(value * 1000) / 1000);
-}
-
-function formatStock(value: number, units: string): string {
-  const qty = formatQty(value);
-  const trimmed = units.trim();
-  return trimmed ? `${qty} ${trimmed}` : qty;
-}
 
 function readPreview(state: unknown, pk: number): PartSummary | null {
   if (typeof state !== "object" || state === null || !("pk" in state) || !("name" in state)) {
@@ -172,26 +161,14 @@ export function PartDetailScreen() {
 
   return (
     <div className="part-detail">
-      <div className="detail-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "detail"}
-          className={tab === "detail" ? "is-on" : ""}
-          onClick={() => setTab("detail")}
-        >
-          详细信息
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "stock"}
-          className={tab === "stock" ? "is-on" : ""}
-          onClick={() => setTab("stock")}
-        >
-          库存
-        </button>
-      </div>
+      <SegmentTabs
+        value={tab}
+        options={[
+          { id: "detail", label: "详细信息" },
+          { id: "stock", label: "库存" },
+        ]}
+        onChange={setTab}
+      />
       <Notice error={tab === "stock" ? stockError : error} />
       <PullToRefresh
         onRefresh={async () => {
@@ -204,13 +181,7 @@ export function PartDetailScreen() {
       >
         <article className="detail-hero">
           <DetailPhoto serverId={serverId} image={part?.image || ""} thumbnail={thumbnail} />
-          <div className="detail-heading">
-            <div className="detail-title-row">
-              <strong>{title}</strong>
-              {stockLabel ? <span className="detail-stock">{stockLabel}</span> : null}
-            </div>
-            {description ? <p className="detail-spec">{description}</p> : null}
-          </div>
+          <DetailHeading title={title} detail={description || undefined} aside={stockLabel || undefined} />
         </article>
         {tab === "detail" ? (
           <>
@@ -237,14 +208,15 @@ export function PartDetailScreen() {
             ) : null}
             <ul className="part-list">
               {stock.map((item) => (
-                <li className="part-card stock-card" key={item.pk}>
-                  <PartThumb serverId={serverId} thumbnail={item.thumbnail} />
-                  <div className="part-body">
-                    <strong>{item.partName || title}</strong>
-                    <small>{item.location || "未设置位置"}</small>
-                    {item.quantity ? <span className="part-qty">{item.quantity}</span> : null}
-                  </div>
-                </li>
+                <PartCard
+                  key={item.pk}
+                  square
+                  serverId={serverId}
+                  thumbnail={item.thumbnail}
+                  title={item.partName || title}
+                  detail={item.location || "未设置位置"}
+                  trailing={item.quantity || undefined}
+                />
               ))}
             </ul>
             {stock.length > 0 || hasMore ? <InfiniteScroll loadMore={loadMore} hasMore={hasMore} /> : null}
@@ -444,67 +416,6 @@ function ratio(current: number, maximum: number) {
     return current > 0 ? 1 : 0;
   }
   return Math.max(0, Math.min(1, current / maximum));
-}
-
-function openLink(url: string) {
-  if (!/^https?:\/\//i.test(url)) {
-    return;
-  }
-  window.open(url, "_blank", "noopener,noreferrer");
-}
-
-function Row({
-  title,
-  detail,
-  aside,
-  icon,
-  danger,
-  note,
-  meter,
-  onClick,
-}: {
-  title: string;
-  detail?: string;
-  aside?: string;
-  icon: ReactNode;
-  danger?: boolean;
-  note?: boolean;
-  meter?: number;
-  onClick?: () => void;
-}) {
-  const className = danger ? "detail-row is-danger" : "detail-row";
-  const body = (
-    <>
-      <span className="detail-icon">{icon}</span>
-      <span className="detail-copy">
-        <strong>{title}</strong>
-        {detail ? <small className={note ? "detail-notes" : undefined}>{detail}</small> : null}
-        {meter !== undefined ? (
-          <span className="meter">
-            <span style={{ width: `${Math.round(meter * 100)}%` }} />
-          </span>
-        ) : null}
-      </span>
-      {aside ? <span className="detail-aside">{aside}</span> : null}
-      {onClick ? <RowChevron /> : null}
-    </>
-  );
-  if (onClick) {
-    return (
-      <button className={className} type="button" onClick={onClick}>
-        {body}
-      </button>
-    );
-  }
-  return <div className={className}>{body}</div>;
-}
-
-function RowChevron() {
-  return (
-    <svg className="row-chevron" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="m9 6 6 6-6 6" />
-    </svg>
-  );
 }
 
 function AlertIcon() {

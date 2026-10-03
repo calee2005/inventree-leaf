@@ -5,6 +5,9 @@ import { PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import { useShell } from "../shell/AppShell";
 import type { CommandFailure, PartDetail, PartPriceDetail } from "../types";
+import { DetailGroup } from "../ui/DetailGroup";
+import { DetailHeading } from "../ui/DetailHeading";
+import { DetailRow } from "../ui/DetailRow";
 
 export function PartPricingScreen() {
   const { serverId } = useShell();
@@ -65,35 +68,20 @@ export function PartPricingScreen() {
         }}
       >
         <div className="detail-stack">
-          {part ? (
-            <div className="detail-heading">
-              <strong>{part.fullName || part.name}</strong>
-              {part.description ? <p className="detail-spec">{part.description}</p> : null}
-            </div>
-          ) : null}
-          {missing ? (
-            <div className="detail-heading">
-              <strong>无可用价格</strong>
-              <p className="detail-spec">未找到此零件的定价数据</p>
-            </div>
-          ) : null}
+          {part ? <DetailHeading title={part.fullName || part.name} detail={part.description || undefined} /> : null}
+          {missing ? <DetailHeading title="无可用价格" detail="未找到此零件的定价数据" /> : null}
           {rows.length > 0 ? (
-            <div className="detail-group">
+            <DetailGroup>
               {rows.map((row) => (
-                <div className="detail-row" key={row.title}>
-                  <span className="detail-copy">
-                    <strong>{row.title}</strong>
-                  </span>
-                  <span className="detail-aside">{row.value}</span>
-                </div>
+                <DetailRow key={row.title} title={row.title} aside={row.value} />
               ))}
-            </div>
+            </DetailGroup>
           ) : null}
           {part?.salable && pricing ? (
-            <div className="detail-group">
-              <PriceLine title="销售价格" value={pricing.salePrice} />
-              <PriceLine title="销售历史" value={pricing.saleHistory} />
-            </div>
+            <DetailGroup>
+              <DetailRow title="销售价格" aside={pricing.salePrice || "-"} />
+              <DetailRow title="销售历史" aside={pricing.saleHistory || "-"} />
+            </DetailGroup>
           ) : null}
         </div>
       </PullToRefresh>
@@ -124,15 +112,4 @@ function priceRows(part: PartDetail, pricing: PartPriceDetail) {
     rows.push({ title: "供应商价格", value: pricing.supplierPrice || "-" });
   }
   return rows;
-}
-
-function PriceLine({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="detail-row">
-      <span className="detail-copy">
-        <strong>{title}</strong>
-      </span>
-      <span className="detail-aside">{value || "-"}</span>
-    </div>
-  );
 }

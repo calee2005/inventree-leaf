@@ -1,24 +1,13 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { listParts, loadPartThumbnail, readError } from "../api";
+import { listParts, readError } from "../api";
 import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import { useShell } from "../shell/AppShell";
 import { usePageStack } from "../shell/pageStack";
 import type { CategorySummary, CommandFailure, PartSummary } from "../types";
+import { PartCard } from "../ui/PartCard";
+import { formatStock } from "../ui/quantity";
 import { CategoryPath } from "./CategoryPath";
-
-function formatQty(value: number): string {
-  if (Number.isInteger(value)) {
-    return String(value);
-  }
-  return String(Math.round(value * 1000) / 1000);
-}
-
-function formatStock(part: PartSummary): string {
-  const qty = formatQty(part.inStock);
-  const units = part.units.trim();
-  return units ? `${qty} ${units}` : qty;
-}
 
 export function PartsScreen() {
   const { serverId, panel, setPanel, setActions } = useShell();
@@ -170,55 +159,18 @@ export function PartsScreen() {
       <PullToRefresh onRefresh={reload}>
       <ul className="part-list">
         {parts.map((part) => (
-          <li key={part.pk}>
-            <button
-              className="part-card"
-              type="button"
-              onClick={() => stack.push(`/parts/${part.pk}`, part)}
-            >
-            <PartThumb serverId={serverId} thumbnail={part.thumbnail} />
-            <div className="part-body">
-              <strong>{part.name}</strong>
-              <span className="part-qty">{formatStock(part)}</span>
-            </div>
-            </button>
-          </li>
+          <PartCard
+            key={part.pk}
+            serverId={serverId}
+            thumbnail={part.thumbnail}
+            title={part.name}
+            trailing={formatStock(part.inStock, part.units)}
+            onClick={() => stack.push(`/parts/${part.pk}`, part)}
+          />
         ))}
       </ul>
       {parts.length > 0 || hasMore ? <InfiniteScroll loadMore={loadMore} hasMore={hasMore} /> : null}
       </PullToRefresh>
-    </div>
-  );
-}
-
-export function PartThumb({ serverId, thumbnail }: { serverId: string; thumbnail: string }) {
-  const [src, setSrc] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!thumbnail.trim()) {
-      setSrc(null);
-      return;
-    }
-    let active = true;
-    loadPartThumbnail(serverId, thumbnail)
-      .then((url) => {
-        if (active) {
-          setSrc(url);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setSrc(null);
-        }
-      });
-    return () => {
-      active = false;
-    };
-  }, [serverId, thumbnail]);
-
-  return (
-    <div className="part-thumb">
-      {src ? <img alt="" src={src} /> : <ImageIcon />}
     </div>
   );
 }
@@ -236,16 +188,6 @@ function SearchIcon() {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <circle cx="10.5" cy="10.5" r="5.5" />
       <path d="M15 15l4 4" />
-    </svg>
-  );
-}
-
-function ImageIcon() {
-  return (
-    <svg className="thumb-fallback" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="4" y="5" width="16" height="14" rx="2" />
-      <circle cx="9" cy="10" r="1.2" />
-      <path d="M7 16l3.2-3.2 2.2 2.2L16 11.5 19 15" />
     </svg>
   );
 }

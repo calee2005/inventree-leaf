@@ -17,17 +17,12 @@ import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
 import { useShell } from "../shell/AppShell";
 import type { BomItemWrite, BomLine, CommandFailure, PartSummary } from "../types";
-import { PartThumb } from "./PartsScreen";
-
-function formatQty(value: number): string {
-  if (!Number.isFinite(value)) {
-    return "0";
-  }
-  if (Number.isInteger(value)) {
-    return String(value);
-  }
-  return String(Math.round(value * 1000) / 1000);
-}
+import { DetailGroup } from "../ui/DetailGroup";
+import { DetailHeading } from "../ui/DetailHeading";
+import { DetailRow } from "../ui/DetailRow";
+import { PartCard } from "../ui/PartCard";
+import { SectionLabel } from "../ui/SectionLabel";
+import { formatQty } from "../ui/quantity";
 
 export function BomListScreen({ usedIn }: { usedIn: boolean }) {
   const { serverId } = useShell();
@@ -107,22 +102,16 @@ export function BomListScreen({ usedIn }: { usedIn: boolean }) {
             const name = usedIn ? item.partName : item.subPartName;
             const thumbnail = usedIn ? item.partThumbnail : item.subPartThumbnail;
             return (
-              <li key={item.pk}>
-                <button
-                  className="part-card stock-card"
-                  type="button"
-                  onClick={() =>
-                    usedIn ? stack.push(`/parts/${partId}`) : stack.push(`/parts/bom/${item.pk}`)
-                  }
-                >
-                  <PartThumb serverId={serverId} thumbnail={thumbnail} />
-                  <div className="part-body">
-                    <strong>{name || "未命名零件"}</strong>
-                    {item.reference ? <small>{item.reference}</small> : null}
-                    <span className="part-qty">{formatQty(item.quantity)}</span>
-                  </div>
-                </button>
-              </li>
+              <PartCard
+                key={item.pk}
+                square
+                serverId={serverId}
+                thumbnail={thumbnail}
+                title={name || "未命名零件"}
+                detail={item.reference || undefined}
+                trailing={formatQty(item.quantity)}
+                onClick={() => (usedIn ? stack.push(`/parts/${partId}`) : stack.push(`/parts/bom/${item.pk}`))}
+              />
             );
           })}
         </ul>
@@ -262,48 +251,45 @@ export function BomLineScreen() {
       {line && !editing ? (
         <PullToRefresh onRefresh={reload}>
           <div className="detail-stack">
-            <div className="detail-heading">
-              <strong>{line.subPartName || "组件"}</strong>
-              <p className="detail-spec">数量 {formatQty(line.quantity)}</p>
-            </div>
-            <div className="detail-group">
-              <button className="detail-row" type="button" onClick={() => stack.push(`/parts/${line.subPartId}`)}>
-                <span className="detail-copy">
-                  <strong>组件</strong>
-                  <small>{line.subPartName || "未命名零件"}</small>
-                </span>
-                <Chevron />
-              </button>
-              <button className="detail-row" type="button" onClick={() => stack.push(`/parts/${line.partId}`)}>
-                <span className="detail-copy">
-                  <strong>装配体</strong>
-                  <small>{line.partName || "未命名零件"}</small>
-                </span>
-                <Chevron />
-              </button>
-              <InfoRow title="参考" detail={line.reference || "没有参考"} />
-              <InfoRow title="备注" detail={line.note || "没有备注"} />
-              <InfoRow title="允许变体" aside={line.allowVariants ? "是" : "否"} />
-              <InfoRow title="变体继承" aside={line.inherited ? "是" : "否"} />
-              <InfoRow title="可选" aside={line.optional ? "是" : "否"} />
-              <InfoRow title="消耗品" aside={line.consumable ? "是" : "否"} />
-              <InfoRow title="准备数量" aside={formatQty(line.setupQuantity)} />
-              <InfoRow title="损耗" aside={formatQty(line.attrition)} />
-              <InfoRow title="取整倍数" aside={line.roundingMultiple === null ? "-" : formatQty(line.roundingMultiple)} />
-              <InfoRow title="已校验" aside={line.validated ? "是" : "否"} />
-            </div>
-            <p className="section-label">替代料</p>
-            <div className="detail-group">
-              {line.substitutes.length === 0 ? <InfoRow title="还没有替代料" /> : null}
+            <DetailHeading title={line.subPartName || "组件"} detail={`数量 ${formatQty(line.quantity)}`} />
+            <DetailGroup>
+              <DetailRow
+                title="组件"
+                detail={line.subPartName || "未命名零件"}
+                onClick={() => stack.push(`/parts/${line.subPartId}`)}
+              />
+              <DetailRow
+                title="装配体"
+                detail={line.partName || "未命名零件"}
+                onClick={() => stack.push(`/parts/${line.partId}`)}
+              />
+              <DetailRow title="参考" detail={line.reference || "没有参考"} />
+              <DetailRow title="备注" detail={line.note || "没有备注"} />
+              <DetailRow title="允许变体" aside={line.allowVariants ? "是" : "否"} />
+              <DetailRow title="变体继承" aside={line.inherited ? "是" : "否"} />
+              <DetailRow title="可选" aside={line.optional ? "是" : "否"} />
+              <DetailRow title="消耗品" aside={line.consumable ? "是" : "否"} />
+              <DetailRow title="准备数量" aside={formatQty(line.setupQuantity)} />
+              <DetailRow title="损耗" aside={formatQty(line.attrition)} />
+              <DetailRow
+                title="取整倍数"
+                aside={line.roundingMultiple === null ? "-" : formatQty(line.roundingMultiple)}
+              />
+              <DetailRow title="已校验" aside={line.validated ? "是" : "否"} />
+            </DetailGroup>
+            <SectionLabel>替代料</SectionLabel>
+            <DetailGroup>
+              {line.substitutes.length === 0 ? <DetailRow title="还没有替代料" /> : null}
               {line.substitutes.map((item) => (
-                <button className="detail-row" type="button" key={item.pk} onClick={() => void removeSubstitute(item.pk)}>
-                  <span className="detail-copy">
-                    <strong>{item.partName || "未命名零件"}</strong>
-                    <small>点此移除</small>
-                  </span>
-                </button>
+                <DetailRow
+                  key={item.pk}
+                  title={item.partName || "未命名零件"}
+                  detail="点此移除"
+                  chevron={false}
+                  onClick={() => void removeSubstitute(item.pk)}
+                />
               ))}
-            </div>
+            </DetailGroup>
             <label>
               添加替代料
               <input
@@ -534,25 +520,5 @@ function BomEditor({
         取消
       </button>
     </form>
-  );
-}
-
-function InfoRow({ title, detail, aside }: { title: string; detail?: string; aside?: string }) {
-  return (
-    <div className="detail-row">
-      <span className="detail-copy">
-        <strong>{title}</strong>
-        {detail ? <small>{detail}</small> : null}
-      </span>
-      {aside ? <span className="detail-aside">{aside}</span> : null}
-    </div>
-  );
-}
-
-function Chevron() {
-  return (
-    <svg className="row-chevron" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="m9 6 6 6-6 6" />
-    </svg>
   );
 }
