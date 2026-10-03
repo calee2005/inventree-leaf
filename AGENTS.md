@@ -28,7 +28,7 @@
 
 ## 命令
 
-`list_servers`、`save_server`、`delete_server`、`select_server`、`test_connection`、`login`、`logout`、`current_user`、`list_parts`、`get_part`、`get_part_category`、`get_part_pricing`、`list_part_stock`、`list_part_categories`、`list_records`、`load_part_image`、`load_part_thumbnail`。
+`list_servers`、`save_server`、`delete_server`、`select_server`、`test_connection`、`login`、`logout`、`current_user`、`list_parts`、`get_part`、`get_part_category`、`get_part_pricing`、`list_part_stock`、`list_supplier_parts`、`get_supplier_part`、`list_part_categories`、`list_records`、`load_part_image`、`load_part_thumbnail`。
 
 错误要带种类，界面据此区分证书失败、网络失败、401 和 403。证书失败时由用户显式勾选信任该服务器，再重试。
 

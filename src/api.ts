@@ -7,6 +7,8 @@ import type {
   PartPage,
   PartPriceDetail,
   PartStockPage,
+  SupplierPartDetail,
+  SupplierPartPage,
   RecordPage,
   ServerInfo,
   ServerView,
@@ -90,6 +92,14 @@ export function getPartCategory(id: string, pk: number) {
 
 export function getPart(id: string, pk: number) {
   return invoke<PartDetail>("get_part", { id, pk });
+}
+
+export function listSupplierParts(id: string, part: number, offset: number) {
+  return invoke<SupplierPartPage>("list_supplier_parts", { id, part, offset });
+}
+
+export function getSupplierPart(id: string, pk: number) {
+  return invoke<SupplierPartDetail>("get_supplier_part", { id, pk });
 }
 
 export function listPartStock(id: string, pk: number, offset: number) {

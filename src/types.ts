@@ -84,6 +84,37 @@ export type PartDetail = {
   parameters: PartParameter[];
 };
 
+export type SupplierPartSummary = {
+  pk: number;
+  sku: string;
+  supplierName: string;
+  partName: string;
+  supplierImage: string;
+  inStock: number;
+};
+
+export type SupplierPartPage = {
+  count: number;
+  results: SupplierPartSummary[];
+};
+
+export type SupplierPartDetail = {
+  pk: number;
+  sku: string;
+  active: boolean;
+  primary: boolean;
+  inStock: number;
+  partId: number;
+  partName: string;
+  supplierName: string;
+  manufacturerName: string;
+  mpn: string;
+  packaging: string;
+  packQuantity: string;
+  link: string;
+  note: string;
+};
+
 export type PartPriceDetail = {
   currency: string;
   priceRange: string;

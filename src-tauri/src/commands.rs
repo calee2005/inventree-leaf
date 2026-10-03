@@ -1,6 +1,6 @@
 use crate::client::{
     self, CategoryPage, ClientError, PartCategory, PartDetail, PartPage, PartPriceDetail,
-    PartStockPage, RecordPage,
+    PartStockPage, RecordPage, SupplierPartDetail, SupplierPartPage,
     ServerInfo, SessionUser,
 };
 use crate::store::{self, ServerView};
@@ -143,6 +143,44 @@ pub async fn get_part(app: AppHandle, id: String, pk: i64) -> Result<PartDetail,
         &app,
         &id,
         client::fetch_part(&profile.server, profile.trusted_certificate, &token, pk).await,
+    )
+}
+
+#[tauri::command]
+pub async fn list_supplier_parts(
+    app: AppHandle,
+    id: String,
+    part: i64,
+    offset: Option<u32>,
+) -> Result<SupplierPartPage, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::fetch_supplier_parts(
+            &profile.server,
+            profile.trusted_certificate,
+            &token,
+            part,
+            offset.unwrap_or(0),
+        )
+        .await,
+    )
+}
+
+#[tauri::command]
+pub async fn get_supplier_part(
+    app: AppHandle,
+    id: String,
+    pk: i64,
+) -> Result<SupplierPartDetail, ClientError> {
+    let profile = store::get_server(&app, &id)?;
+    let token = store::token_for(&app, &id)?;
+    keep_session(
+        &app,
+        &id,
+        client::fetch_supplier_part(&profile.server, profile.trusted_certificate, &token, pk).await,
     )
 }
 

@@ -218,6 +218,43 @@ pub struct PartPriceDetail {
     pub sale_history: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SupplierPartSummary {
+    pub pk: i64,
+    pub sku: String,
+    pub supplier_name: String,
+    pub part_name: String,
+    pub supplier_image: String,
+    pub in_stock: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SupplierPartPage {
+    pub count: i64,
+    pub results: Vec<SupplierPartSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SupplierPartDetail {
+    pub pk: i64,
+    pub sku: String,
+    pub active: bool,
+    pub primary: bool,
+    pub in_stock: f64,
+    pub part_id: i64,
+    pub part_name: String,
+    pub supplier_name: String,
+    pub manufacturer_name: String,
+    pub mpn: String,
+    pub packaging: String,
+    pub pack_quantity: String,
+    pub link: String,
+    pub note: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartRequirements {
     pub building: f64,
@@ -627,6 +664,91 @@ pub fn parse_part_stock_page(body: &str) -> Result<PartStockPage, ClientError> {
     Ok(PartStockPage { count, results })
 }
 
+pub fn parse_supplier_part_page(body: &str) -> Result<SupplierPartPage, ClientError> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| ClientError::MissingData("供应商零件列表不是 JSON".into()))?;
+    if let Some(items) = value.as_array() {
+        let results = parse_supplier_part_rows(items);
+        return Ok(SupplierPartPage {
+            count: results.len() as i64,
+            results,
+        });
+    }
+    let results = value
+        .get("results")
+        .and_then(Value::as_array)
+        .map(|items| parse_supplier_part_rows(items))
+        .unwrap_or_default();
+    let count = value
+        .get("count")
+        .and_then(json_i64)
+        .unwrap_or(results.len() as i64);
+    Ok(SupplierPartPage { count, results })
+}
+
+fn parse_supplier_part_rows(items: &[Value]) -> Vec<SupplierPartSummary> {
+    items.iter().filter_map(parse_supplier_part_summary).collect()
+}
+
+fn parse_supplier_part_summary(value: &Value) -> Option<SupplierPartSummary> {
+    let pk = value.get("pk").and_then(json_i64)?;
+    let image = {
+        let thumb = nested_text(value, "supplier_detail", "thumbnail");
+        if thumb.trim().is_empty() {
+            nested_text(value, "supplier_detail", "image")
+        } else {
+            thumb
+        }
+    };
+    Some(SupplierPartSummary {
+        pk,
+        sku: string_field(value, "SKU"),
+        supplier_name: nested_text(value, "supplier_detail", "name"),
+        part_name: first_text(&[
+            nested_text(value, "part_detail", "full_name"),
+            nested_text(value, "part_detail", "name"),
+        ]),
+        supplier_image: image,
+        in_stock: number_field(value, "in_stock"),
+    })
+}
+
+pub fn parse_supplier_part(body: &str) -> Result<SupplierPartDetail, ClientError> {
+    let value: Value = serde_json::from_str(body)
+        .map_err(|_| ClientError::MissingData("供应商零件不是 JSON".into()))?;
+    let pk = value
+        .get("pk")
+        .and_then(json_i64)
+        .ok_or_else(|| ClientError::MissingData("供应商零件里没有 pk".into()))?;
+    let note = {
+        let short = string_field(&value, "note");
+        if short.trim().is_empty() {
+            string_field(&value, "notes")
+        } else {
+            short
+        }
+    };
+    Ok(SupplierPartDetail {
+        pk,
+        sku: string_field(&value, "SKU"),
+        active: bool_field(&value, "active", true),
+        primary: bool_field(&value, "primary", false),
+        in_stock: number_field(&value, "in_stock"),
+        part_id: optional_id(&value, "part").unwrap_or(0),
+        part_name: first_text(&[
+            nested_text(&value, "part_detail", "full_name"),
+            nested_text(&value, "part_detail", "name"),
+        ]),
+        supplier_name: nested_text(&value, "supplier_detail", "name"),
+        manufacturer_name: nested_text(&value, "manufacturer_detail", "name"),
+        mpn: string_field(&value, "MPN"),
+        packaging: string_field(&value, "packaging"),
+        pack_quantity: string_field(&value, "pack_quantity"),
+        link: string_field(&value, "link"),
+        note,
+    })
+}
+
 fn parse_stock_rows(items: &[Value]) -> Vec<PartStockItem> {
     items.iter().filter_map(parse_stock_item).collect()
 }
@@ -848,6 +970,36 @@ pub fn attachment_count_url(base: &str, pk: i64) -> Result<String, ClientError> 
             ("offset", "0".to_string()),
             ("model_type", "part".to_string()),
             ("model_id", pk.to_string()),
+        ],
+    )
+}
+
+pub fn supplier_part_list_url(base: &str, part: i64, offset: u32) -> Result<String, ClientError> {
+    if part <= 0 {
+        return Err(ClientError::Invalid("零件不存在".into()));
+    }
+    with_query(
+        &api_url(base, "api/company/part/")?,
+        &[
+            ("limit", PART_PAGE_LIMIT.to_string()),
+            ("offset", offset.to_string()),
+            ("part", part.to_string()),
+            ("supplier_detail", "true".to_string()),
+            ("part_detail", "true".to_string()),
+        ],
+    )
+}
+
+pub fn supplier_part_url(base: &str, pk: i64) -> Result<String, ClientError> {
+    if pk <= 0 {
+        return Err(ClientError::Invalid("供应商零件不存在".into()));
+    }
+    with_query(
+        &api_url(base, &format!("api/company/part/{pk}/"))?,
+        &[
+            ("supplier_detail", "true".to_string()),
+            ("part_detail", "true".to_string()),
+            ("manufacturer_detail", "true".to_string()),
         ],
     )
 }
@@ -1376,6 +1528,29 @@ pub async fn fetch_part_stock(
     parse_part_stock_page(&body)
 }
 
+pub async fn fetch_supplier_parts(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    part: i64,
+    offset: u32,
+) -> Result<SupplierPartPage, ClientError> {
+    let url = supplier_part_list_url(base, part, offset)?;
+    let body = get_text(&url, trust_invalid_certs, Some(&format!("Token {token}"))).await?;
+    parse_supplier_part_page(&body)
+}
+
+pub async fn fetch_supplier_part(
+    base: &str,
+    trust_invalid_certs: bool,
+    token: &str,
+    pk: i64,
+) -> Result<SupplierPartDetail, ClientError> {
+    let url = supplier_part_url(base, pk)?;
+    let body = get_text(&url, trust_invalid_certs, Some(&format!("Token {token}"))).await?;
+    parse_supplier_part(&body)
+}
+
 pub async fn fetch_categories(
     base: &str,
     trust_invalid_certs: bool,
@@ -1859,5 +2034,26 @@ mod tests {
         assert_eq!(page.results[0].location, "仓库/A1");
         assert_eq!(page.results[0].quantity, "2 个");
         assert_eq!(page.results[0].thumbnail, "/media/r.png");
+        let suppliers = parse_supplier_part_page(
+            r#"{"count":1,"results":[{"pk":4,"SKU":"SKU-1","in_stock":6,"supplier_detail":{"name":"甲公司","thumbnail":"/media/s.png"},"part_detail":{"full_name":"电阻"}}]}"#,
+        )
+        .unwrap();
+        assert_eq!(suppliers.results[0].sku, "SKU-1");
+        assert_eq!(suppliers.results[0].supplier_name, "甲公司");
+        assert_eq!(suppliers.results[0].supplier_image, "/media/s.png");
+        let supplier = parse_supplier_part(
+            r#"{"pk":4,"SKU":"SKU-1","active":false,"primary":true,"in_stock":6,"part":9,"packaging":"卷带","pack_quantity":"100","link":"https://example.com/s","note":"湿敏","MPN":"MPN-9","supplier_detail":{"name":"甲公司"},"part_detail":{"full_name":"电阻"},"manufacturer_detail":{"name":"乙厂"}}"#,
+        )
+        .unwrap();
+        assert!(!supplier.active);
+        assert!(supplier.primary);
+        assert_eq!(supplier.part_id, 9);
+        assert_eq!(supplier.manufacturer_name, "乙厂");
+        assert_eq!(supplier.mpn, "MPN-9");
+        assert_eq!(supplier.pack_quantity, "100");
+        assert!(parse_supplier_part("{}").is_err());
+        assert!(supplier_part_list_url("https://demo.example.com", 9, 0)
+            .unwrap()
+            .contains("part=9"));
     }
 }

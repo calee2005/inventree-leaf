@@ -223,6 +223,7 @@ export function PartDetailScreen() {
                   stack.push(id ? `/parts/category/${id}` : "/parts/category/root")
                 }
                 onOpenPricing={() => stack.push(`/parts/${part.pk}/pricing`)}
+                onOpenSuppliers={() => stack.push(`/parts/${part.pk}/suppliers`)}
               />
             ) : null}
           </>
@@ -257,11 +258,13 @@ function DetailRows({
   onOpenTemplate,
   onOpenCategory,
   onOpenPricing,
+  onOpenSuppliers,
 }: {
   part: PartDetail;
   onOpenTemplate: (pk: number) => void;
   onOpenCategory: (id: number | null) => void;
   onOpenPricing: () => void;
+  onOpenSuppliers: () => void;
 }) {
   return (
     <div className="detail-group">
@@ -341,7 +344,12 @@ function DetailRows({
         <Row title="外部链接" detail={part.link} icon={<LinkIcon />} onClick={() => openLink(part.link)} />
       ) : null}
       {part.purchaseable && part.supplierCount > 0 ? (
-        <Row title="供应商" aside={String(part.supplierCount)} icon={<FactoryIcon />} />
+        <Row
+          title="供应商"
+          aside={String(part.supplierCount)}
+          icon={<FactoryIcon />}
+          onClick={onOpenSuppliers}
+        />
       ) : null}
       <Row title="注释" detail={part.notes || "没有注释"} icon={<NoteIcon />} note />
       {part.parameters.length > 0 ? (

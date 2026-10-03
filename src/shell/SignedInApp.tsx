@@ -4,6 +4,7 @@ import { RouterProvider } from "react-router/dom";
 import { CategoryScreen } from "../screens/CategoryScreen";
 import { PartDetailScreen } from "../screens/PartDetailScreen";
 import { PartPricingScreen } from "../screens/PartPricingScreen";
+import { SupplierPartDetailScreen, SupplierPartListScreen } from "../screens/SupplierPartScreen";
 import { PartsScreen } from "../screens/PartsScreen";
 import { RecordListScreen } from "../screens/RecordListScreen";
 import type { SessionUser } from "../types";
@@ -52,6 +53,22 @@ const signedInChildren = [
     element: (
       <PageFrame back title="零件类别">
         <CategoryScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/parts/:partId/suppliers",
+    element: (
+      <PageFrame back title="供应商零件">
+        <SupplierPartListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/parts/supplier/:supplierPartId",
+    element: (
+      <PageFrame back title="供应商零件">
+        <SupplierPartDetailScreen />
       </PageFrame>
     ),
   },

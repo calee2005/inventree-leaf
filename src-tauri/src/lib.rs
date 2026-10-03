@@ -20,6 +20,8 @@ pub fn run() {
             commands::get_part_category,
             commands::get_part_pricing,
             commands::list_part_stock,
+            commands::list_supplier_parts,
+            commands::get_supplier_part,
             commands::list_part_categories,
             commands::list_records,
             commands::load_part_image,

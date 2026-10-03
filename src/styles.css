@@ -953,11 +953,20 @@ input[type="password"] {
   font-weight: 650;
 }
 
-.part-pricing {
+.part-pricing,
+.subpage-top {
   margin-top: 14px;
 }
 
-.part-pricing .detail-heading {
+.shell.shell-app button.part-card.stock-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  width: 100%;
+  text-align: left;
+}
+
+.part-pricing .detail-heading,
+.subpage-top .detail-heading {
   padding: 0 14px;
 }
 
