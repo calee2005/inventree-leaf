@@ -27,6 +27,7 @@ import {
   SupplierListScreen,
 } from "../screens/SupplierScreen";
 import { AboutScreen } from "../screens/AboutScreen";
+import { BoardScreen } from "../screens/BoardScreen";
 import { PartsScreen } from "../screens/PartsScreen";
 import { BuildAllocationScreen, BuildDetailScreen, BuildLineScreen, BuildListScreen, BuildOutputScreen } from "../screens/BuildScreen";
 import { PurchaseOrderListScreen } from "../screens/PurchaseOrderScreen";
@@ -39,6 +40,7 @@ import { PageFrame } from "./PageFrame";
 
 const signedInViews: ShellView[] = [
   { id: "parts", path: "/parts", title: "零件", color: "#2f78f6" },
+  { id: "board", path: "/board", title: "看板", color: "#44557a" },
   { id: "stock", path: "/stock", title: "库存", color: "#1f9d6a" },
   { id: "supplier", path: "/supplier", title: "供应商", color: "#e07a32" },
   { id: "customer", path: "/customer", title: "客户", color: "#c43d7a" },
@@ -61,6 +63,14 @@ const signedInChildren = [
     element: (
       <PageFrame back title="关于">
         <AboutScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/board",
+    element: (
+      <PageFrame>
+        <BoardScreen />
       </PageFrame>
     ),
   },

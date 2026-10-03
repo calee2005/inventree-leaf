@@ -71,6 +71,8 @@ function partSummary(value: unknown): PartSummary | null {
     inStock: typeof record.inStock === "number" ? record.inStock : 0,
     units: typeof record.units === "string" ? record.units : "",
     thumbnail: typeof record.thumbnail === "string" ? record.thumbnail : "",
+    pricingMin: typeof record.pricingMin === "string" ? record.pricingMin : "",
+    pricingMax: typeof record.pricingMax === "string" ? record.pricingMax : "",
   };
 }
 

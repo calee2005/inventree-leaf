@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { listParts, readError } from "../api";
+import { defaultCurrency, listParts, readError } from "../api";
 import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import { useShell } from "../shell/AppShell";
@@ -7,7 +7,7 @@ import { usePageStack } from "../shell/pageStack";
 import type { CategorySummary, CommandFailure, PartSummary } from "../types";
 import { PartCard } from "../ui/PartCard";
 import { TextField } from "../ui/TextField";
-import { formatStock } from "../ui/quantity";
+import { formatStock, stockValueLabel } from "../ui/quantity";
 import { CategoryPath } from "./CategoryPath";
 
 export function PartsScreen() {
@@ -23,6 +23,7 @@ export function PartsScreen() {
   const [loading, setLoading] = useState(true);
   const [hasMore, setHasMore] = useState(false);
   const [blocked, setBlocked] = useState<string | null>(null);
+  const [currency, setCurrency] = useState("");
   const offsetRef = useRef(0);
   const trailRef = useRef(trail);
   const stackRef = useRef(stack);
@@ -52,6 +53,18 @@ export function PartsScreen() {
     ]);
     return () => setActions([]);
   }, [setActions]);
+
+  useEffect(() => {
+    let active = true;
+    defaultCurrency(serverId).then((code) => {
+      if (active) {
+        setCurrency(code);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [serverId]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(searchInput.trim()), 300);
@@ -177,6 +190,7 @@ export function PartsScreen() {
             thumbnail={part.thumbnail}
             title={part.name}
             trailing={formatStock(part.inStock, part.units)}
+            value={stockValueLabel(part.inStock, part.pricingMin, part.pricingMax, currency)}
             onClick={() => stack.push(`/parts/${part.pk}`, part)}
           />
         ))}

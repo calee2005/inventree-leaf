@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router";
-import { getPartCategory, listPartCategories, listParts, readError } from "../api";
+import { defaultCurrency, getPartCategory, listPartCategories, listParts, readError } from "../api";
 import { InfiniteScroll, PullToRefresh } from "../MobileList";
 import { Notice } from "../Notice";
 import { usePageStack } from "../shell/pageStack";
@@ -12,12 +12,13 @@ import { DetailRow } from "../ui/DetailRow";
 import { PartCard } from "../ui/PartCard";
 import { SectionLabel } from "../ui/SectionLabel";
 import { SegmentTabs } from "../ui/SegmentTabs";
-import { formatStock } from "../ui/quantity";
+import { formatStock, stockValueLabel } from "../ui/quantity";
 
 type Tab = "detail" | "parts";
 
 export function CategoryScreen() {
   const { serverId } = useShell();
+  const [currency, setCurrency] = useState("");
   const stack = usePageStack();
   const params = useParams();
   const rawId = params.categoryId ?? "root";
@@ -38,6 +39,18 @@ export function CategoryScreen() {
   const [partLoading, setPartLoading] = useState(false);
   const [partHasMore, setPartHasMore] = useState(false);
   const partOffset = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    defaultCurrency(serverId).then((code) => {
+      if (active) {
+        setCurrency(code);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [serverId]);
 
   useEffect(() => {
     setTab("detail");
@@ -247,6 +260,7 @@ export function CategoryScreen() {
                   thumbnail={part.thumbnail}
                   title={part.name}
                   trailing={formatStock(part.inStock, part.units)}
+                  value={stockValueLabel(part.inStock, part.pricingMin, part.pricingMax, currency)}
                   onClick={() => stack.push(`/parts/${part.pk}`, part)}
                 />
               ))}

@@ -569,7 +569,7 @@ export async function listParts(
   category: number | null,
   search: string,
   offset: number,
-  options?: { ordering?: string; allCategories?: boolean },
+  options?: { ordering?: string; allCategories?: boolean; hasStock?: boolean },
 ): Promise<PartPage> {
   const base = requireServer(id).server;
   const query = search.trim();
@@ -579,6 +579,9 @@ export async function listParts(
   ];
   if (options?.ordering) {
     pairs.push(["ordering", options.ordering]);
+  }
+  if (options?.hasStock) {
+    pairs.push(["has_stock", "true"]);
   }
   if (!query && !options?.allCategories) {
     pairs.push(["category", category === null ? "null" : String(category)]);
@@ -601,6 +604,8 @@ export async function listParts(
       inStock: num(item, "in_stock"),
       units: text(item, "units"),
       thumbnail: text(item, "thumbnail"),
+      pricingMin: decimalText(item, "pricing_min"),
+      pricingMax: decimalText(item, "pricing_max"),
     };
     return [summary];
   });
@@ -823,6 +828,8 @@ export async function getPart(id: string, pk: number): Promise<PartDetail> {
     inStock: detail.inStock,
     units: detail.units,
     thumbnail: detail.thumbnail,
+    pricingMin: "",
+    pricingMax: "",
   });
   return detail;
 }
@@ -1125,6 +1132,47 @@ function stockItemBody(input: StockItemWrite) {
     purchase_price: input.purchasePrice.trim() || null,
     purchase_price_currency: input.purchasePrice.trim() ? input.purchasePriceCurrency : null,
   };
+}
+
+export async function defaultCurrency(id: string): Promise<string> {
+  try {
+    const value = await authed(
+      id,
+      apiUrl(requireServer(id).server, "api/settings/global/INVENTREE_DEFAULT_CURRENCY/"),
+    );
+    return text(value, "value").trim();
+  } catch {
+    return "";
+  }
+}
+
+export async function totalStockValue(id: string): Promise<{ min: number; max: number; priced: number }> {
+  let offset = 0;
+  let count = Number.POSITIVE_INFINITY;
+  let min = 0;
+  let max = 0;
+  let priced = 0;
+  while (offset < count) {
+    const page = await listParts(id, null, "", offset, { allCategories: true, hasStock: true });
+    count = page.count;
+    if (page.results.length === 0) {
+      break;
+    }
+    for (const part of page.results) {
+      const low = Number(part.pricingMin);
+      const high = Number(part.pricingMax);
+      const hasLow = part.pricingMin.trim() !== "" && Number.isFinite(low);
+      const hasHigh = part.pricingMax.trim() !== "" && Number.isFinite(high);
+      if (!hasLow && !hasHigh) {
+        continue;
+      }
+      min += part.inStock * (hasLow ? low : high);
+      max += part.inStock * (hasHigh ? high : low);
+      priced += 1;
+    }
+    offset += page.results.length;
+  }
+  return { min, max, priced };
 }
 
 export async function getPartSerialNumbers(id: string, pk: number): Promise<{ next: string; latest: string }> {

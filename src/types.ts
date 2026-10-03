@@ -32,6 +32,8 @@ export type PartSummary = {
   inStock: number;
   units: string;
   thumbnail: string;
+  pricingMin: string;
+  pricingMax: string;
 };
 
 export type PartPage = {
