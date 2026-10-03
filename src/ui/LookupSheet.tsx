@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Popup from "antd-mobile/es/components/popup";
-import { listParts, readError } from "../api";
+import { listCompanies, listParts, readError } from "../api";
 import { Notice } from "../Notice";
-import type { CommandFailure, PartSummary } from "../types";
+import type { CommandFailure, CompanySummary, PartSummary } from "../types";
 import { PartCard } from "./PartCard";
 import { TextField } from "./TextField";
 import { formatStock } from "./quantity";
@@ -127,6 +127,45 @@ export function LookupSheet<T>({
         </div>
       </Popup>
     </>
+  );
+}
+
+export function SupplierLookup({
+  serverId,
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  serverId: string;
+  label: string;
+  hint?: string;
+  value: { pk: number; name: string } | null;
+  onChange: (company: CompanySummary) => void;
+}) {
+  return (
+    <LookupSheet
+      label={label}
+      hint={hint}
+      selectedLabel={value?.name ?? ""}
+      selectedKey={value ? String(value.pk) : ""}
+      searchPlaceholder="搜索供应商"
+      idleText="输入关键词开始查找"
+      emptyText="没有匹配的供应商"
+      search={async (query) => (await listCompanies(serverId, 0, { supplier: true, search: query })).results}
+      itemKey={(company) => String(company.pk)}
+      onSelect={onChange}
+      renderItem={(company, selected, select) => (
+        <PartCard
+          serverId={serverId}
+          thumbnail={company.thumbnail}
+          title={company.name || "未命名"}
+          detail={company.description || undefined}
+          selected={selected}
+          onClick={select}
+        />
+      )}
+    />
   );
 }
 

@@ -27,8 +27,10 @@ import { TextField } from "../ui/TextField";
 import { formatQty, formatStock } from "../ui/quantity";
 
 export function BomListScreen({ usedIn }: { usedIn: boolean }) {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
   const stack = usePageStack();
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
   const params = useParams();
   const partPk = Number(params.partId);
   const invalid = !Number.isInteger(partPk) || partPk <= 0;
@@ -79,14 +81,24 @@ export function BomListScreen({ usedIn }: { usedIn: boolean }) {
     };
   }, [serverId, partPk, usedIn, invalid]);
 
+  useEffect(() => {
+    if (usedIn || invalid) {
+      setActions([]);
+      return;
+    }
+    setActions([
+      {
+        id: "add-bom",
+        label: "添加物料",
+        onSelect: () => stackRef.current.push(`/parts/${partPk}/bom/new`),
+      },
+    ]);
+    return () => setActions([]);
+  }, [usedIn, invalid, partPk, setActions]);
+
   return (
     <div className="part-detail">
       <Notice error={error} />
-      {!usedIn ? (
-        <button className="form-primary" type="button" onClick={() => stack.push(`/parts/${partPk}/bom/new`)}>
-          添加物料
-        </button>
-      ) : null}
       {loading ? <p className="muted">正在读取物料清单…</p> : null}
       <PullToRefresh
         onRefresh={async () => {
@@ -136,7 +148,7 @@ export function BomListScreen({ usedIn }: { usedIn: boolean }) {
 }
 
 export function BomLineScreen() {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
   const stack = usePageStack();
   const params = useParams();
   const bomId = Number(params.bomId);
@@ -217,6 +229,42 @@ export function BomLineScreen() {
     }
   }
 
+  const lineActions = useRef({ toggleValid, removeLine, removeSubstitute });
+  lineActions.current = { toggleValid, removeLine, removeSubstitute };
+
+  useEffect(() => {
+    if (!line || editing) {
+      if (!editing) {
+        setActions([]);
+      }
+      return;
+    }
+    const validated = line.validated;
+    setActions([
+      {
+        id: "validate-bom",
+        label: validated ? "取消校验" : "标记已校验",
+        onSelect: () => void lineActions.current.toggleValid(),
+      },
+      {
+        id: "edit-bom",
+        label: "编辑",
+        onSelect: () => setEditing(true),
+      },
+      {
+        id: "delete-bom",
+        label: "删除",
+        onSelect: () => void lineActions.current.removeLine(),
+      },
+      ...line.substitutes.map((item) => ({
+        id: `remove-sub-${item.pk}`,
+        label: `移除替代料 ${item.partName || "未命名零件"}`,
+        onSelect: () => void lineActions.current.removeSubstitute(item.pk),
+      })),
+    ]);
+    return () => setActions([]);
+  }, [line, editing, setActions]);
+
   return (
     <div className="part-detail">
       <Notice error={error} />
@@ -271,9 +319,6 @@ export function BomLineScreen() {
                 <DetailRow
                   key={item.pk}
                   title={item.partName || "未命名零件"}
-                  detail="点此移除"
-                  chevron={false}
-                  onClick={() => void removeSubstitute(item.pk)}
                 />
               ))}
             </DetailGroup>
@@ -284,15 +329,6 @@ export function BomLineScreen() {
               value={null}
               onChange={(part) => void addSubstitute(part.pk)}
             />
-            <button className="form-primary" type="button" onClick={() => void toggleValid()}>
-              {line.validated ? "取消校验" : "标记已校验"}
-            </button>
-            <button className="form-primary" type="button" onClick={() => setEditing(true)}>
-              编辑
-            </button>
-            <button className="form-danger" type="button" onClick={() => void removeLine()}>
-              删除
-            </button>
           </div>
         </PullToRefresh>
       ) : null}
@@ -336,6 +372,10 @@ function BomEditor({
   onSaved: () => void;
   onError?: (error: CommandFailure | null) => void;
 }) {
+  const { setActions } = useShell();
+  const saveRef = useRef<() => void>(() => {});
+  const cancelRef = useRef(onCancel);
+  cancelRef.current = onCancel;
   const [chosen, setChosen] = useState<{ pk: number; name: string } | null>(
     initial ? { pk: initial.subPartId, name: initial.subPartName } : null,
   );
@@ -355,6 +395,22 @@ function BomEditor({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<CommandFailure | null>(null);
+
+  useEffect(() => {
+    setActions([
+      {
+        id: "save-bom",
+        label: saving ? "正在保存…" : "保存",
+        onSelect: () => saveRef.current(),
+      },
+      {
+        id: "cancel-bom",
+        label: "取消",
+        onSelect: () => cancelRef.current(),
+      },
+    ]);
+    return () => setActions([]);
+  }, [saving, setActions]);
 
   async function save() {
     const part = initial?.partId ?? assemblyId ?? 0;
@@ -401,6 +457,12 @@ function BomEditor({
     }
   }
 
+  saveRef.current = () => {
+    if (!saving) {
+      void save();
+    }
+  };
+
   return (
     <form
       className="bom-form"
@@ -439,12 +501,6 @@ function BomEditor({
       <CheckField label="变体继承此行" hint="变体零件的物料清单会继承此行" checked={inherited} onChange={setInherited} />
       <CheckField label="可选项" hint="装配时可以不安装此零件" checked={optional} onChange={setOptional} />
       <CheckField label="消耗品" hint="消耗品不需要追踪库存" checked={consumable} onChange={setConsumable} />
-      <button className="form-primary" type="submit" disabled={saving}>
-        {saving ? "正在保存…" : "保存"}
-      </button>
-      <button className="form-danger" type="button" onClick={onCancel}>
-        取消
-      </button>
     </form>
   );
 }

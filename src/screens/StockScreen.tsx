@@ -58,25 +58,55 @@ export function StockLocationScreen() {
   const [itemHasMore, setItemHasMore] = useState(false);
   const itemOffset = useRef(0);
 
+  const removeLocationRef = useRef<(pk: number) => void>(() => {});
+
   useEffect(() => {
-    if (!isRoot) {
+    if (isRoot) {
+      setActions([
+        {
+          id: "create-location",
+          label: "新建仓储位置",
+          onSelect: () => stackRef.current.push("/stock/location/new"),
+        },
+        {
+          id: "create-item",
+          label: "新建库存项",
+          onSelect: () => stackRef.current.push("/stock/item/new"),
+        },
+      ]);
+      return () => setActions([]);
+    }
+    if (!location) {
       setActions([]);
       return;
     }
+    const placeId = location.pk;
+    const placeName = location.name;
+    const placePath = location.pathstring || location.name;
     setActions([
       {
         id: "create-location",
         label: "新建仓储位置",
-        onSelect: () => stackRef.current.push("/stock/location/new"),
+        onSelect: () => stackRef.current.push("/stock/location/new", { parentId: placeId, parentName: placeName }),
       },
       {
         id: "create-item",
         label: "新建库存项",
-        onSelect: () => stackRef.current.push("/stock/item/new"),
+        onSelect: () => stackRef.current.push("/stock/item/new", { locationId: placeId, locationName: placePath }),
+      },
+      {
+        id: "edit-location",
+        label: "编辑位置",
+        onSelect: () => stackRef.current.push(`/stock/location/${placeId}/edit`),
+      },
+      {
+        id: "delete-location",
+        label: "删除位置",
+        onSelect: () => removeLocationRef.current(placeId),
       },
     ]);
     return () => setActions([]);
-  }, [isRoot, setActions]);
+  }, [isRoot, location, setActions]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setQuery(searchInput.trim()), 300);
@@ -181,6 +211,7 @@ export function StockLocationScreen() {
   }, [tab, serverId, locationPk, invalid, query]);
 
   const title = isRoot ? "顶级库存地点" : location?.name || "库存地点";
+  removeLocationRef.current = removeLocation;
 
   return (
     <div className="part-detail">
@@ -229,41 +260,6 @@ export function StockLocationScreen() {
                   }
                 />
               </DetailGroup>
-            ) : null}
-            {!isRoot && location ? (
-              <>
-                <button
-                  className="form-primary"
-                  type="button"
-                  onClick={() =>
-                    stack.push("/stock/location/new", { parentId: location.pk, parentName: location.name })
-                  }
-                >
-                  新建仓储位置
-                </button>
-                <button
-                  className="form-primary"
-                  type="button"
-                  onClick={() =>
-                    stack.push("/stock/item/new", {
-                      locationId: location.pk,
-                      locationName: location.pathstring || location.name,
-                    })
-                  }
-                >
-                  新建库存项
-                </button>
-                <button
-                  className="form-primary"
-                  type="button"
-                  onClick={() => stack.push(`/stock/location/${location.pk}/edit`)}
-                >
-                  编辑位置
-                </button>
-                <button className="form-danger" type="button" onClick={() => void removeLocation(location.pk)}>
-                  删除位置
-                </button>
-              </>
             ) : null}
             <SectionLabel>次级位置</SectionLabel>
             {childLoading && children.length === 0 ? <p className="muted">正在读取次级位置…</p> : null}
@@ -343,8 +339,11 @@ export function StockLocationScreen() {
 }
 
 export function StockItemScreen() {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
   const stack = usePageStack();
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
+  const removeItemRef = useRef<(pk: number) => void>(() => {});
   const params = useParams();
   const itemPk = Number(params.itemId);
   const [item, setItem] = useState<StockItemDetail | null>(null);
@@ -359,6 +358,26 @@ export function StockItemScreen() {
     setError(null);
     setItem(await getStockItem(serverId, itemPk));
   }
+
+  useEffect(() => {
+    if (!Number.isInteger(itemPk) || itemPk <= 0) {
+      setActions([]);
+      return;
+    }
+    setActions([
+      {
+        id: "edit-item",
+        label: "编辑库存项",
+        onSelect: () => stackRef.current.push(`/stock/item/${itemPk}/edit`),
+      },
+      {
+        id: "delete-item",
+        label: "删除库存项",
+        onSelect: () => removeItemRef.current(itemPk),
+      },
+    ]);
+    return () => setActions([]);
+  }, [itemPk, setActions]);
 
   useEffect(() => {
     let active = true;
@@ -378,6 +397,8 @@ export function StockItemScreen() {
       active = false;
     };
   }, [serverId, itemPk]);
+
+  removeItemRef.current = removeItem;
 
   return (
     <div className="part-detail">
@@ -420,12 +441,6 @@ export function StockItemScreen() {
               {item.updated ? <DetailRow title="最近更新" aside={item.updated} /> : null}
               {item.stocktakeDate ? <DetailRow title="最近盘点" aside={item.stocktakeDate} /> : null}
             </DetailGroup>
-            <button className="form-primary" type="button" onClick={() => stack.push(`/stock/item/${item.pk}/edit`)}>
-              编辑库存项
-            </button>
-            <button className="form-danger" type="button" onClick={() => void removeItem(item.pk)}>
-              删除库存项
-            </button>
           </div>
         </PullToRefresh>
       ) : null}

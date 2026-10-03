@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router";
 import {
   createPart,
@@ -20,12 +20,15 @@ type Mode = "create" | "edit";
 const flags: Array<{ key: keyof PartWrite; label: string; hint: string }> = [
   { key: "active", label: "有效", hint: "此零件是否处于有效状态" },
   { key: "assembly", label: "装配件", hint: "此零件能否由其他零件组装而成" },
-  { key: "component", label: "元件", hint: "此零件能否用于组装其他零件" },
+  { key: "component", label: "原料", hint: "此零件能否作为原料，用于组装其他零件" },
   { key: "purchaseable", label: "可采购", hint: "此零件能否从外部供应商采购" },
   { key: "salable", label: "可销售", hint: "此零件能否销售给客户" },
   { key: "trackable", label: "可追踪", hint: "此零件是否追踪唯一件" },
+  { key: "testable", label: "可测试", hint: "此零件能否记录测试结果" },
+  { key: "consumable", label: "耗材", hint: "此零件是否为耗材，例如胶水或紧固件" },
   { key: "isTemplate", label: "模板零件", hint: "此零件是否为模板零件" },
   { key: "virtual", label: "虚拟零件", hint: "此零件是否为虚拟零件，例如软件或许可证" },
+  { key: "locked", label: "锁定", hint: "锁定后不能编辑此零件" },
 ];
 
 function readCategory(state: unknown): LookupHit | null {
@@ -59,6 +62,10 @@ function blankPart(category: LookupHit | null): PartWrite {
     trackable: false,
     isTemplate: false,
     virtual: false,
+    testable: false,
+    consumable: false,
+    locked: false,
+    copyCategoryParameters: true,
   };
 }
 
@@ -81,11 +88,16 @@ function fromDetail(part: PartDetail): PartWrite {
     trackable: part.trackable,
     isTemplate: part.isTemplate,
     virtual: part.virtual,
+    testable: part.testable,
+    consumable: part.consumable,
+    locked: part.locked,
+    copyCategoryParameters: false,
   };
 }
 
 export function PartFormScreen({ mode }: { mode: Mode }) {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
+  const saveRef = useRef<() => void>(() => {});
   const stack = usePageStack();
   const location = useLocation();
   const params = useParams();
@@ -142,6 +154,21 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
     };
   }, [mode, partPk, serverId]);
 
+  useEffect(() => {
+    if (loading) {
+      setActions([]);
+      return;
+    }
+    setActions([
+      {
+        id: "save-part",
+        label: saving ? "正在保存…" : mode === "create" ? "创建" : "保存",
+        onSelect: () => saveRef.current(),
+      },
+    ]);
+    return () => setActions([]);
+  }, [loading, saving, mode, setActions]);
+
   function patch(next: Partial<PartWrite>) {
     setDraft((current) => ({ ...current, ...next }));
   }
@@ -168,6 +195,12 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
     }
   }
 
+  saveRef.current = () => {
+    if (!saving && !loading) {
+      void save();
+    }
+  };
+
   if (loading) {
     return <p className="muted">正在读取零件…</p>;
   }
@@ -181,7 +214,7 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
       }}
     >
       <Notice error={error} />
-      {locked ? <p className="muted">此零件已锁定，不能编辑。</p> : null}
+      {locked ? <p className="muted">此零件已锁定。取消锁定后才能修改其他内容。</p> : null}
       <TextField label="名称" hint="零件名称" value={draft.name} onChange={(value) => patch({ name: value })} />
       <TextField label="描述" hint="零件描述" value={draft.description} onChange={(value) => patch({ description: value })} />
       <TextField
@@ -235,9 +268,14 @@ export function PartFormScreen({ mode }: { mode: Mode }) {
           onChange={(checked) => patch({ [flag.key]: checked })}
         />
       ))}
-      <button className="form-primary" type="submit" disabled={saving || locked}>
-        {saving ? "正在保存…" : mode === "create" ? "创建" : "保存"}
-      </button>
+      {mode === "create" ? (
+        <CheckField
+          label="复制类别参数"
+          hint="从所选零件类别复制参数模板"
+          checked={draft.copyCategoryParameters}
+          onChange={(checked) => patch({ copyCategoryParameters: checked })}
+        />
+      ) : null}
     </form>
   );
 }

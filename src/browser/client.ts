@@ -2,6 +2,7 @@ import type {
   CompanyDetail,
   CompanyPage,
   CompanySummary,
+  CompanyWrite,
   ManufacturerPartDetail,
   ManufacturerPartSummary,
   PurchaseOrderDetail,
@@ -47,6 +48,7 @@ import type {
   StockLocationSummary,
   StockLocationWrite,
   SupplierPartDetail,
+  SupplierPartWrite,
   SupplierPartPage,
   SupplierPartSummary,
 } from "../types";
@@ -692,6 +694,8 @@ function parsePartDetail(value: unknown): PartDetail {
     trackable: bool(value, "trackable", false),
     virtual: bool(value, "virtual", false),
     locked: bool(value, "locked", false),
+    testable: bool(value, "testable", false),
+    consumable: bool(value, "consumable", false),
     keywords: text(value, "keywords"),
     link: text(value, "link"),
     notes: text(value, "notes"),
@@ -828,6 +832,10 @@ function partBody(input: PartWrite) {
     trackable: input.trackable,
     is_template: input.isTemplate,
     virtual: input.virtual,
+    testable: input.testable,
+    consumable: input.consumable,
+    locked: input.locked,
+    copy_category_parameters: input.copyCategoryParameters,
   };
 }
 
@@ -1372,6 +1380,59 @@ function formatQty(value: number): string {
   return Number.isInteger(value) ? String(value) : String(Math.round(value * 1000) / 1000);
 }
 
+export async function createSupplierPart(id: string, input: SupplierPartWrite): Promise<number> {
+  if (input.part <= 0) {
+    throw fail("invalid", "请选择零件");
+  }
+  if (input.supplier <= 0) {
+    throw fail("invalid", "请选择供应商");
+  }
+  const sku = input.sku.trim();
+  if (!sku) {
+    throw fail("invalid", "请填写供应商零件编号");
+  }
+  const link = input.link.trim();
+  if (link && !/^https?:\/\//i.test(link)) {
+    throw fail("invalid", "链接需要以 http:// 或 https:// 开头");
+  }
+  const body: Record<string, unknown> = {
+    part: input.part,
+    supplier: input.supplier,
+    SKU: sku,
+    active: input.active,
+    primary: input.primary,
+  };
+  const description = input.description.trim();
+  const packaging = input.packaging.trim();
+  const packQuantity = input.packQuantity.trim();
+  const note = input.note.trim();
+  if (description) {
+    body.description = description;
+  }
+  if (packaging) {
+    body.packaging = packaging;
+  }
+  if (packQuantity) {
+    body.pack_quantity = packQuantity;
+  }
+  if (link) {
+    body.link = link;
+  }
+  if (note) {
+    body.note = note.slice(0, 100);
+    body.notes = note;
+  }
+  const value = await authed(id, apiUrl(requireServer(id).server, "api/company/part/"), {
+    method: "POST",
+    json: body,
+  });
+  const pk = idOf(value, "pk");
+  if (!pk) {
+    throw fail("missingData", "新的供应商零件里没有 pk");
+  }
+  return pk;
+}
+
 export async function listSupplierParts(
   id: string,
   offset: number,
@@ -1504,6 +1565,64 @@ export async function listCompanies(
     return summary ? [summary] : [];
   });
   return { count: pageCount(value, results), results };
+}
+
+function companyBody(input: CompanyWrite) {
+  const name = input.name.trim();
+  if (!name) {
+    throw fail("invalid", "请填写名称");
+  }
+  const currency = input.currency.trim();
+  if (!currency) {
+    throw fail("invalid", "请选择币种");
+  }
+  const website = input.website.trim();
+  const link = input.link.trim();
+  const email = input.email.trim();
+  if (website && !/^https?:\/\//i.test(website)) {
+    throw fail("invalid", "网站需要以 http:// 或 https:// 开头");
+  }
+  if (link && !/^https?:\/\//i.test(link)) {
+    throw fail("invalid", "链接需要以 http:// 或 https:// 开头");
+  }
+  return {
+    name,
+    description: input.description.trim(),
+    website,
+    phone: input.phone.trim(),
+    email,
+    contact: input.contact.trim(),
+    link,
+    currency,
+    tax_id: input.taxId.trim(),
+    notes: input.notes.trim(),
+    active: input.active,
+    is_supplier: input.isSupplier,
+    is_manufacturer: input.isManufacturer,
+    is_customer: input.isCustomer,
+  };
+}
+
+export async function createCompany(id: string, input: CompanyWrite): Promise<number> {
+  const value = await authed(id, apiUrl(requireServer(id).server, "api/company/"), {
+    method: "POST",
+    json: companyBody(input),
+  });
+  const pk = idOf(value, "pk");
+  if (!pk) {
+    throw fail("missingData", "新公司里没有 pk");
+  }
+  return pk;
+}
+
+export async function updateCompany(id: string, pk: number, input: CompanyWrite) {
+  if (pk <= 0) {
+    throw fail("invalid", "公司不存在");
+  }
+  await authed(id, apiUrl(requireServer(id).server, `api/company/${pk}/`), {
+    method: "PATCH",
+    json: companyBody(input),
+  });
 }
 
 export async function getCompany(id: string, pk: number): Promise<CompanyDetail> {

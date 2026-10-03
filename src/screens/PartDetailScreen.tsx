@@ -25,7 +25,7 @@ function readPreview(state: unknown, pk: number): PartSummary | null {
 }
 
 export function PartDetailScreen() {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
   const stack = usePageStack();
   const params = useParams();
   const location = useLocation();
@@ -160,6 +160,25 @@ export function PartDetailScreen() {
     }
   }
 
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
+
+  useEffect(() => {
+    if (!part) {
+      setActions([]);
+      return;
+    }
+    const pk = part.pk;
+    setActions([
+      {
+        id: "edit-part",
+        label: "编辑零件",
+        onSelect: () => stackRef.current.push(`/parts/${pk}/edit`),
+      },
+    ]);
+    return () => setActions([]);
+  }, [part, setActions]);
+
   const title = part?.fullName || part?.name || preview?.name || "零件";
   const description = part?.description || preview?.description || "";
   const thumbnail = part?.thumbnail || "";
@@ -212,7 +231,6 @@ export function PartDetailScreen() {
                 onOpenSuppliers={() => stack.push(`/parts/${part.pk}/suppliers`)}
                 onOpenBom={() => stack.push(`/parts/${part.pk}/bom`)}
                 onOpenUsedIn={() => stack.push(`/parts/${part.pk}/used-in`)}
-                onEdit={() => stack.push(`/parts/${part.pk}/edit`)}
               />
             ) : null}
           </>
@@ -252,7 +270,6 @@ function DetailRows({
   onOpenSuppliers,
   onOpenBom,
   onOpenUsedIn,
-  onEdit,
 }: {
   part: PartDetail;
   onOpenTemplate: (pk: number) => void;
@@ -261,11 +278,9 @@ function DetailRows({
   onOpenSuppliers: () => void;
   onOpenBom: () => void;
   onOpenUsedIn: () => void;
-  onEdit: () => void;
 }) {
   return (
     <div className="detail-group">
-      <Row title="编辑零件" onClick={onEdit} />
       {!part.active ? (
         <Row title="未激活" detail="此零件已停用" danger icon={<AlertIcon />} />
       ) : null}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router";
 import Picker from "antd-mobile/es/components/picker";
 import {
@@ -56,7 +56,8 @@ function readHit(state: unknown, idKey: string, nameKey: string): LookupHit | nu
 }
 
 export function StockLocationFormScreen({ mode }: { mode: "create" | "edit" }) {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
+  const saveRef = useRef<() => void>(() => {});
   const stack = usePageStack();
   const route = useLocation();
   const params = useParams();
@@ -111,6 +112,21 @@ export function StockLocationFormScreen({ mode }: { mode: "create" | "edit" }) {
     };
   }, [mode, locationPk, serverId]);
 
+  useEffect(() => {
+    if (loading) {
+      setActions([]);
+      return;
+    }
+    setActions([
+      {
+        id: "save-location",
+        label: saving ? "正在保存…" : mode === "create" ? "创建" : "保存",
+        onSelect: () => saveRef.current(),
+      },
+    ]);
+    return () => setActions([]);
+  }, [loading, saving, mode, setActions]);
+
   async function save() {
     setSaving(true);
     setError(null);
@@ -135,6 +151,12 @@ export function StockLocationFormScreen({ mode }: { mode: "create" | "edit" }) {
     }
   }
 
+  saveRef.current = () => {
+    if (!saving && !loading) {
+      void save();
+    }
+  };
+
   if (loading) {
     return <p className="muted">正在读取地点…</p>;
   }
@@ -158,15 +180,13 @@ export function StockLocationFormScreen({ mode }: { mode: "create" | "edit" }) {
         onChange={setStructural}
       />
       <CheckField label="外部地点" hint="这是外部库存地点" checked={external} onChange={setExternal} />
-      <button className="form-primary" type="submit" disabled={saving}>
-        {saving ? "正在保存…" : mode === "create" ? "创建" : "保存"}
-      </button>
     </form>
   );
 }
 
 export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
+  const saveRef = useRef<() => void>(() => {});
   const stack = usePageStack();
   const route = useLocation();
   const params = useParams();
@@ -223,6 +243,21 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
     };
   }, [mode, itemPk, serverId]);
 
+  useEffect(() => {
+    if (loading) {
+      setActions([]);
+      return;
+    }
+    setActions([
+      {
+        id: "save-item",
+        label: saving ? "正在保存…" : mode === "create" ? "创建" : "保存",
+        onSelect: () => saveRef.current(),
+      },
+    ]);
+    return () => setActions([]);
+  }, [loading, saving, mode, setActions]);
+
   async function save() {
     const amount = Number(quantity);
     if (!part) {
@@ -258,6 +293,12 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
       setSaving(false);
     }
   }
+
+  saveRef.current = () => {
+    if (!saving && !loading) {
+      void save();
+    }
+  };
 
   if (loading) {
     return <p className="muted">正在读取库存项…</p>;
@@ -305,9 +346,6 @@ export function StockItemFormScreen({ mode }: { mode: "create" | "edit" }) {
       <TextField label="批号" hint="批次编号" value={batch} onChange={setBatch} />
       <TextField label="包装" hint="存放这批库存的包装" value={packaging} onChange={setPackaging} />
       <TextField label="链接" hint="指向外部页面的链接" type="url" inputMode="url" value={link} onChange={setLink} />
-      <button className="form-primary" type="submit" disabled={saving}>
-        {saving ? "正在保存…" : mode === "create" ? "创建" : "保存"}
-      </button>
     </form>
   );
 }

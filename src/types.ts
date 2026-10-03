@@ -69,6 +69,10 @@ export type PartWrite = {
   trackable: boolean;
   isTemplate: boolean;
   virtual: boolean;
+  testable: boolean;
+  consumable: boolean;
+  locked: boolean;
+  copyCategoryParameters: boolean;
 };
 
 export type PartDetail = {
@@ -94,6 +98,8 @@ export type PartDetail = {
   trackable: boolean;
   virtual: boolean;
   locked: boolean;
+  testable: boolean;
+  consumable: boolean;
   keywords: string;
   link: string;
   notes: string;
@@ -167,6 +173,19 @@ export type BomItemWrite = {
   roundingMultiple: number | null;
 };
 
+export type SupplierPartWrite = {
+  part: number;
+  supplier: number;
+  sku: string;
+  description: string;
+  packaging: string;
+  packQuantity: string;
+  link: string;
+  note: string;
+  active: boolean;
+  primary: boolean;
+};
+
 export type SupplierPartSummary = {
   pk: number;
   sku: string;
@@ -200,6 +219,23 @@ export type SupplierPartDetail = {
   packQuantity: string;
   link: string;
   note: string;
+};
+
+export type CompanyWrite = {
+  name: string;
+  description: string;
+  website: string;
+  phone: string;
+  email: string;
+  contact: string;
+  link: string;
+  currency: string;
+  taxId: string;
+  notes: string;
+  active: boolean;
+  isSupplier: boolean;
+  isManufacturer: boolean;
+  isCustomer: boolean;
 };
 
 export type CompanySummary = {

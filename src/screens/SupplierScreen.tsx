@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { useParams } from "react-router";
+import { useLocation, useParams } from "react-router";
 import {
   countOutstandingPurchaseOrders,
   countOutstandingSalesOrders,
@@ -33,8 +33,10 @@ import { openLink } from "../ui/openLink";
 import { formatQty } from "../ui/quantity";
 
 export function SupplierListScreen() {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
   const stack = usePageStack();
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
   const search = useSearch();
   const [companies, setCompanies] = useState<CompanySummary[]>([]);
   const [error, setError] = useState<CommandFailure | null>(null);
@@ -62,6 +64,17 @@ export function SupplierListScreen() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    setActions([
+      {
+        id: "create-supplier",
+        label: "添加供应商",
+        onSelect: () => stackRef.current.push("/supplier/new"),
+      },
+    ]);
+    return () => setActions([]);
+  }, [setActions]);
 
   useEffect(() => {
     setLoading(true);
@@ -110,8 +123,11 @@ export function SupplierListScreen() {
 }
 
 export function CompanyDetailScreen() {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
   const stack = usePageStack();
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
+  const route = useLocation();
   const params = useParams();
   const companyId = Number(params.companyId);
   const invalid = !Number.isInteger(companyId) || companyId <= 0;
@@ -149,6 +165,23 @@ export function CompanyDetailScreen() {
     setLoading(true);
     void load();
   }, [serverId, companyId]);
+
+  useEffect(() => {
+    if (!company) {
+      setActions([]);
+      return;
+    }
+    const base = route.pathname.startsWith("/customer") ? "customer" : "supplier";
+    const pk = company.pk;
+    setActions([
+      {
+        id: "edit-company",
+        label: "编辑公司",
+        onSelect: () => stackRef.current.push(`/${base}/${pk}/edit`),
+      },
+    ]);
+    return () => setActions([]);
+  }, [company, route.pathname, setActions]);
 
   const roles = company
     ? [
@@ -223,11 +256,29 @@ export function CompanyDetailScreen() {
 }
 
 export function CompanyPartListScreen() {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
   const stack = usePageStack();
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
   const params = useParams();
   const companyId = Number(params.companyId);
   const search = useSearch();
+
+  useEffect(() => {
+    if (!Number.isInteger(companyId) || companyId <= 0) {
+      setActions([]);
+      return;
+    }
+    setActions([
+      {
+        id: "add-supplier-part",
+        label: "添加供应商零件",
+        onSelect: () => stackRef.current.push("/parts/supplier/new", { supplierId: companyId }),
+      },
+    ]);
+    return () => setActions([]);
+  }, [companyId, setActions]);
+
   return (
     <PagedCards
       serverId={serverId}

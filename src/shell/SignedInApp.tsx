@@ -7,6 +7,7 @@ import { PartDetailScreen } from "../screens/PartDetailScreen";
 import { PartImageScreen } from "../screens/PartImageScreen";
 import { PartFormScreen } from "../screens/PartFormScreen";
 import { PartPricingScreen } from "../screens/PartPricingScreen";
+import { CompanyFormScreen } from "../screens/CompanyFormScreen";
 import { CustomerListScreen } from "../screens/CustomerScreen";
 import { PurchaseOrderDetailScreen } from "../screens/PurchaseOrderScreen";
 import {
@@ -15,6 +16,7 @@ import {
   SalesShipmentListScreen,
   SalesShipmentScreen,
 } from "../screens/SalesOrderScreen";
+import { SupplierPartFormScreen } from "../screens/SupplierPartFormScreen";
 import { SupplierPartDetailScreen, SupplierPartListScreen, SupplierPartStockScreen } from "../screens/SupplierPartScreen";
 import {
   CompanyDetailScreen,
@@ -119,6 +121,14 @@ const signedInChildren = [
     ),
   },
   {
+    path: "/parts/supplier/new",
+    element: (
+      <PageFrame back title="添加供应商零件">
+        <SupplierPartFormScreen />
+      </PageFrame>
+    ),
+  },
+  {
     path: "/parts/supplier/:supplierPartId",
     element: (
       <PageFrame back title="供应商零件">
@@ -215,6 +225,22 @@ const signedInChildren = [
     ),
   },
   {
+    path: "/customer/new",
+    element: (
+      <PageFrame back title="添加客户">
+        <CompanyFormScreen mode="create" role="customer" />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/customer/:companyId/edit",
+    element: (
+      <PageFrame back title="编辑公司信息">
+        <CompanyFormScreen mode="edit" role="customer" />
+      </PageFrame>
+    ),
+  },
+  {
     path: "/customer",
     element: (
       <PageFrame>
@@ -267,6 +293,22 @@ const signedInChildren = [
     element: (
       <PageFrame>
         <SalesOrderListScreen />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/supplier/new",
+    element: (
+      <PageFrame back title="添加新公司">
+        <CompanyFormScreen mode="create" role="supplier" />
+      </PageFrame>
+    ),
+  },
+  {
+    path: "/supplier/:companyId/edit",
+    element: (
+      <PageFrame back title="编辑公司信息">
+        <CompanyFormScreen mode="edit" role="supplier" />
       </PageFrame>
     ),
   },

@@ -29,11 +29,13 @@ function notifyPartImage(pk: number) {
 }
 
 export function PartImageScreen() {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
   const params = useParams();
   const partPk = Number(params.partId);
   const invalid = !Number.isInteger(partPk) || partPk <= 0;
   const fileRef = useRef<HTMLInputElement>(null);
+  const sendRef = useRef<(file: Blob, filename: string) => void>(() => {});
+  const removeRef = useRef<() => void>(() => {});
   const [part, setPart] = useState<PartDetail | null>(null);
   const [src, setSrc] = useState<string | null>(null);
   const [error, setError] = useState<CommandFailure | null>(null);
@@ -106,6 +108,59 @@ export function PartImageScreen() {
     }
   }
 
+  sendRef.current = (file, filename) => {
+    if (!busy) {
+      void send(file, filename);
+    }
+  };
+  removeRef.current = () => {
+    if (!busy) {
+      void removeImage();
+    }
+  };
+
+  useEffect(() => {
+    if (loading || cropping) {
+      if (loading && !cropping) {
+        setActions([]);
+      }
+      return;
+    }
+    if (picked) {
+      const file = picked;
+      setActions([
+        { id: "crop-image", label: "裁剪", onSelect: () => setCropping(true) },
+        {
+          id: "use-original",
+          label: "使用原始文件",
+          onSelect: () => sendRef.current(file, file.name || "part-image"),
+        },
+        { id: "cancel-image", label: "取消", onSelect: () => setPicked(null) },
+      ]);
+      return () => setActions([]);
+    }
+    const next = [
+      {
+        id: "upload-image",
+        label: busy ? "正在上传…" : "上传图片",
+        onSelect: () => {
+          if (!busy && !invalid) {
+            fileRef.current?.click();
+          }
+        },
+      },
+    ];
+    if (part?.image.trim()) {
+      next.push({
+        id: "delete-image",
+        label: "删除图片",
+        onSelect: () => removeRef.current(),
+      });
+    }
+    setActions(next);
+    return () => setActions([]);
+  }, [loading, cropping, picked, busy, invalid, part?.image, setActions]);
+
   return (
     <div className="part-image-page">
       <Notice error={error} />
@@ -122,14 +177,6 @@ export function PartImageScreen() {
           <div className="part-image-view">
             {src ? <img alt="" src={src} /> : !loading ? <p className="muted">还没有图片</p> : null}
           </div>
-          <button className="form-primary" type="button" disabled={busy || invalid} onClick={() => fileRef.current?.click()}>
-            上传图片
-          </button>
-          {part?.image.trim() ? (
-            <button className="form-danger" type="button" disabled={busy} onClick={() => void removeImage()}>
-              删除图片
-            </button>
-          ) : null}
           {busy ? <p className="muted">正在上传…</p> : null}
         </>
       )}
@@ -151,21 +198,7 @@ export function PartImageScreen() {
       {picked && !cropping ? (
         <div className="image-choice" onClick={(event) => event.stopPropagation()}>
           <strong>裁剪图片</strong>
-          <p>您想要在上传前裁剪此图像吗？</p>
-          <button className="form-primary" type="button" disabled={busy} onClick={() => setCropping(true)}>
-            裁剪
-          </button>
-          <button
-            className="form-primary is-quiet"
-            type="button"
-            disabled={busy}
-            onClick={() => void send(picked, picked.name || "part-image")}
-          >
-            使用原始文件
-          </button>
-          <button className="form-danger" type="button" disabled={busy} onClick={() => setPicked(null)}>
-            取消
-          </button>
+          <p>您想要在上传前裁剪此图像吗？请从行动菜单选择。</p>
         </div>
       ) : null}
     </div>
@@ -191,6 +224,10 @@ function ImageCropper({
   const [userScale, setUserScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [failed, setFailed] = useState(false);
+  const { setActions } = useShell();
+  const doneRef = useRef<() => void>(() => {});
+  const cancelRef = useRef(onCancel);
+  cancelRef.current = onCancel;
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
 
   useEffect(() => {
@@ -267,6 +304,24 @@ function ImageCropper({
     image.src = url;
   }
 
+  doneRef.current = () => {
+    if (!busy && !failed && natural.w > 0 && stage.w > 0) {
+      finishCrop();
+    }
+  };
+
+  useEffect(() => {
+    setActions([
+      {
+        id: "finish-crop",
+        label: busy ? "正在上传…" : "完成",
+        onSelect: () => doneRef.current(),
+      },
+      { id: "cancel-crop", label: "取消", onSelect: () => cancelRef.current() },
+    ]);
+    return () => setActions([]);
+  }, [busy, setActions]);
+
   return (
     <>
       <div className="ratio-row">
@@ -320,12 +375,6 @@ function ImageCropper({
           重置
         </button>
       </div>
-      <button className="form-primary" type="button" disabled={busy || failed || !natural.w || stage.w <= 0} onClick={finishCrop}>
-        {busy ? "正在上传…" : "完成"}
-      </button>
-      <button className="form-danger" type="button" disabled={busy} onClick={onCancel}>
-        取消
-      </button>
     </>
   );
 }

@@ -14,8 +14,10 @@ import { openLink } from "../ui/openLink";
 import { formatQty } from "../ui/quantity";
 
 export function SupplierPartListScreen() {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
   const stack = usePageStack();
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
   const params = useParams();
   const partPk = Number(params.partId);
   const invalid = !Number.isInteger(partPk) || partPk <= 0;
@@ -65,6 +67,21 @@ export function SupplierPartListScreen() {
       active = false;
     };
   }, [serverId, partPk, invalid]);
+
+  useEffect(() => {
+    if (invalid) {
+      setActions([]);
+      return;
+    }
+    setActions([
+      {
+        id: "add-supplier-part",
+        label: "添加供应商零件",
+        onSelect: () => stackRef.current.push("/parts/supplier/new", { partId: partPk }),
+      },
+    ]);
+    return () => setActions([]);
+  }, [invalid, partPk, setActions]);
 
   return (
     <div className="part-detail">

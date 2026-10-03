@@ -9,8 +9,10 @@ import { PartCard } from "../ui/PartCard";
 import { TextField } from "../ui/TextField";
 
 export function CustomerListScreen() {
-  const { serverId } = useShell();
+  const { serverId, setActions } = useShell();
   const stack = usePageStack();
+  const stackRef = useRef(stack);
+  stackRef.current = stack;
   const [searchInput, setSearchInput] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -46,6 +48,17 @@ export function CustomerListScreen() {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    setActions([
+      {
+        id: "create-customer",
+        label: "添加客户",
+        onSelect: () => stackRef.current.push("/customer/new"),
+      },
+    ]);
+    return () => setActions([]);
+  }, [setActions]);
 
   useEffect(() => {
     setLoading(true);

@@ -61,7 +61,7 @@ export function PageFrame({ back = false, title, children }: Props) {
         <Notice error={shell.error} />
         <PageContent>{children}</PageContent>
       </div>
-      {!back && shell.actions.length > 0 ? (
+      {shell.actions.length > 0 ? (
         <div className="action-dock">
           {shell.panel === "actions" ? (
             <div className="popover action-menu" onClick={(event) => event.stopPropagation()}>

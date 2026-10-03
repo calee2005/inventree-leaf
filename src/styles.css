@@ -751,6 +751,13 @@ button.brand-logo-button {
   overflow: hidden;
 }
 
+.pull-host {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .adm-pull-to-refresh {
   flex: 1;
   min-height: 0;
